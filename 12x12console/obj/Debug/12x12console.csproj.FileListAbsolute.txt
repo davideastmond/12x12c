@@ -1,0 +1,7 @@
+F:\users\david\Source\Repos\12x12console\12x12console\bin\Debug\12x12console.exe.config
+F:\users\david\Source\Repos\12x12console\12x12console\bin\Debug\12x12console.exe
+F:\users\david\Source\Repos\12x12console\12x12console\bin\Debug\12x12console.pdb
+F:\users\david\Source\Repos\12x12console\12x12console\obj\Debug\12x12console.csprojAssemblyReference.cache
+F:\users\david\Source\Repos\12x12console\12x12console\obj\Debug\12x12console.csproj.CoreCompileInputs.cache
+F:\users\david\Source\Repos\12x12console\12x12console\obj\Debug\12x12console.exe
+F:\users\david\Source\Repos\12x12console\12x12console\obj\Debug\12x12console.pdb
