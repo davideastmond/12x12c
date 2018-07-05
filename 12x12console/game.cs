@@ -391,6 +391,7 @@ namespace _12x12console
             List<Strategy> WhiteSpaceStrategies = new List<Strategy>();
 
             // Get all strategies where there is a potential to build a score
+            List<Strategy> PointBuildingStrategies = GetPointBuildingStrategies(masterStrategyList);
 
             
 
@@ -399,7 +400,10 @@ namespace _12x12console
             return return_move;
 
         }
-        
+        private List<Strategy> GetPointBlockStrategies (List<Strategy> source)
+        {
+            return new List<Strategy>();
+        }
         private List<Strategy> GetAIPointScoringStrategies(List<Strategy> source)
         {
             List<Strategy> returnList = new List<Strategy>();
@@ -423,13 +427,23 @@ namespace _12x12console
             {
                 throw new Exception("Unable to evaluate move, as location isn't empty: AI can only make a move on an empty space.");
             }
-
-
             if (s_pieces.ContainsCountOf(opp_piece, boardrefence) == s_pieces.Count - 1)
             {
                 return true;
             }
             return false;
+        }
+        public List<Strategy> GetPointBuildingStrategies(List<Strategy> masterList)
+        {
+            List<Strategy> returnList = new List<Strategy>();
+            foreach(Strategy s in masterList)
+            {
+                if (s.ScoreBuilder == this.PieceColor)
+                {
+                    returnList.Add(s);
+                }
+            }
+            return returnList;
         }
     }
     public class Strategy
@@ -452,6 +466,7 @@ namespace _12x12console
             surrounding_pieces = boardstate.GetSurroundingPieces(center); 
             possible_moves = GetPossibleMoves(surrounding_pieces, boardstate);
             DetermineScoringMoveAndPlayer(boardstate);
+            DetermineScoreBuildingChance(boardstate); // This completes the score building properties
             
         }
         private List<Tuple<int, int>> GetPossibleMoves(List<Tuple<int, int>> s_pieces, GameBoard boardstate)
@@ -528,12 +543,30 @@ namespace _12x12console
                 this.Tag = "Not a score-building chance;";
                 return;
             }
-            // Let's filter out any spoiled point-scoring strategies
-            
-            if (surrounding_pieces.ContainsCountOf(Game.Empty, boardstate) == surrounding_pieces.Count)
-            {
+            // Let's indicate out a spoiled point-scoring strategies
+           // Scoring chances are eliminated when one of the surrounding pieces is the same as the pieceatcenter
+           if (surrounding_pieces.ContainsCountOf(ColorAtCenter, boardstate) > 0)
+           {
+                // This is not a point scoring strategy
+                this.ScoreBuilder = 0;
+                this.ScoreBuildingOpportunity = false;
+                this.ScoreBuildingPriority = 0;
+                this.Tag = "Not a score-building chance as it has been blocked;";
+                return;
+           }
 
+           // A score building opporunity exists if there are >= 0 white spaces in the surrounding pieces but one less than the surrounding_piece count
+           if (surrounding_pieces.ContainsCountOf(Game.Empty, boardstate) > 0 && surrounding_pieces.ContainsCountOf(OppColor, boardstate) < surrounding_pieces.Count)
+           {
+                // This is not a point scoring strategy
+                this.ScoreBuilder = OppColor;
+                this.ScoreBuildingOpportunity = true;
+                this.ScoreBuildingPriority = 6 - surrounding_pieces.ContainsCountOf(Game.Empty, boardstate); 
+                
+                this.Tag = ("Player " + OppColor + " has a score building chance");
+                return;
             }
+        
         }
     }
     public static class ExtensionMethods
