@@ -452,11 +452,17 @@ namespace _12x12console
         public List<Tuple<int, int>> surrounding_pieces = new List<Tuple<int, int>>(); // can be either 4, 3 or 2 in length. They surround the center
         public List<Tuple<int, int>> possible_moves = new List<Tuple<int, int>>(); // an array of blank spaces where AI may place a tile
         public int ScoringPlayer; // The player that will score the point (either 1, or 2 || or 0 for no player)
+
         public Tuple<int, int> ScoringMove; // The (row, col) location of the move that will score a point
         public int ScoreBuildingPriority = 0;
         public bool ScoreBuildingOpportunity = false;
         public int ScoreBuilder = 0; // Should be 1, 2 or 0 for no score building
         public string Tag = "";
+
+        public bool BlockOpportunity = false;
+        public int BlockPriority = 0;
+
+        public int BlockDefender = 0;
 
         // Strategy type ? Block, Win, Build
         public Strategy(Tuple<int, int> centerpoint, GameBoard boardstate)
@@ -567,6 +573,48 @@ namespace _12x12console
                 return;
             }
         
+        }
+        public void DetermineBlockingStatus(GameBoard boardstate)
+        {
+            // This determines whether the piece at center (one's own piece is in the process of being surrounded, and determines a move that will block scoring of the opponent
+            /*
+             * 4- Top priority one move left until opponent scores
+             * 3- Two spots left
+             * 2 - Three spots left
+             * 1 - Four spots left
+             */
+
+            // Get the color at center
+            int Agressor = 0; // Keeps track of the person who is trying to score
+            int targetColorAtCenter = boardstate.Grid[center.Item1, center.Item2];
+            if (targetColorAtCenter != Game.Empty)
+            {
+                Agressor = GameBoard.GetOppColor(targetColorAtCenter);
+            } else
+            {
+                // Write it off
+                BlockOpportunity = false;
+                BlockPriority = 0;
+                return;
+            }
+            
+            // Evaluate the surrounding pieces
+            if (surrounding_pieces.ContainsCountOf(boardstate.Grid[center.Item1, center.Item2], boardstate) > 0 )
+            {
+                // Abort as the defender has blocked the aggressor
+                BlockOpportunity = false;
+                BlockPriority = 0;
+                return;
+            } else
+            {
+                if (surrounding_pieces.ContainsCountOf(Game.Empty, boardstate) > 0)
+                {
+                    // surrounding pieces contains empty space and not of the defender's pieces
+                    BlockOpportunity = true;
+                    this.BlockDefender = boardstate.Grid[center.Item1, center.Item2]; // The defender clearly is the piece at center
+                    this.BlockPriority = 5 - surrounding_pieces.ContainsCountOf(Game.Empty, boardstate);
+                }
+            }
         }
     }
     public static class ExtensionMethods
