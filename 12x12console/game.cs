@@ -77,7 +77,6 @@ namespace _12x12console
             if (Board.Grid[loc.Item1, loc.Item2] == Empty)
             {
                 Board.Grid[loc.Item1, loc.Item2] = p_color;
-                
                 SweepForScore();
                 return 0;
             }
@@ -186,11 +185,14 @@ namespace _12x12console
     public class GameBoard
     {
         public int[,] Grid;
+        public List<Tuple<int, int>> AIMoveCache = new List<Tuple<int, int>>();
         public GameBoard(Tuple<int, int> size)
         {
             // Initialize a new maxtrix
             Grid = new int[size.Item1, size.Item2];
+            
         }
+        
         public void Print()
         {
             // Print out a helper guide
@@ -353,6 +355,18 @@ namespace _12x12console
                 _pColor = value;
             }
         }
+        private string _tag;
+        public string Tag
+        {
+            get
+            {
+                return _tag;
+            }
+            set
+            {
+                _tag = value;
+            }
+        }
        
     }
     public class HumanPlayer : Player
@@ -383,7 +397,7 @@ namespace _12x12console
             List<Strategy> PointScoringStrategies = GetAIPointScoringStrategies(masterStrategyList);
 
             // Get the point-blocking strategies - prevent the opponent from scoring a point
-
+            List<Strategy> PointBlockStrategies = GetPointBlockStrategies(masterStrategyList);
 
             // Get block opponent white space strategy
 
@@ -402,7 +416,16 @@ namespace _12x12console
         }
         private List<Strategy> GetPointBlockStrategies (List<Strategy> source)
         {
-            return new List<Strategy>();
+            List<Strategy> returnList = new List<Strategy>();
+            foreach(Strategy s in source)
+            {
+                if (s.BlockPriority >= 2 && s.BlockOpportunity == true && s.BlockDefender == this.PieceColor)
+                {
+                    returnList.Add(s);
+                }
+                
+            }
+            return returnList;
         }
         private List<Strategy> GetAIPointScoringStrategies(List<Strategy> source)
         {
@@ -418,7 +441,9 @@ namespace _12x12console
         }
         public bool WillMoveEndangerAIPlayer(Tuple<int, int> move, GameBoard boardrefence)
         {
-            /* This function will return 'true' if the next move the AI makes will cause that piece to be captured, resulting in a point for the opponent*/
+            /* This funtion returns true if:
+             the AI places a piece in a spot in an opponent's surround position or:
+             the AI places a piece in a spot where the opponent's next piece placement causes the AI to be scored upon*/
             List<Tuple<int, int>> s_pieces = boardrefence.GetSurroundingPieces(move); // Get the pieces surrounding the place the AI wants to make
             int opp_piece = GameBoard.GetOppColor(PieceColor); // Gets your opponent's color
 
@@ -427,8 +452,18 @@ namespace _12x12console
             {
                 throw new Exception("Unable to evaluate move, as location isn't empty: AI can only make a move on an empty space.");
             }
-            if (s_pieces.ContainsCountOf(opp_piece, boardrefence) == s_pieces.Count - 1)
+            // Must contain one empty space
+            if (s_pieces.ContainsCountOf(Game.Empty, boardrefence) == 1)
             {
+                if (s_pieces.ContainsCountOf(opp_piece, boardrefence) == s_pieces.Count - 1)
+                {
+                    return true;
+                }
+            }
+
+            if (s_pieces.ContainsCountOf(opp_piece, boardrefence) == s_pieces.Count)
+            {
+                // This is essentially placing a piece right in the middle of the opponents capturing position
                 return true;
             }
             return false;
@@ -450,6 +485,8 @@ namespace _12x12console
     {
         public Tuple<int, int> center; // The target piece. Pieces surround it.
         public List<Tuple<int, int>> surrounding_pieces = new List<Tuple<int, int>>(); // can be either 4, 3 or 2 in length. They surround the center
+        public List<Tuple<int, int>> surrounding_pieces_diagonals = new List<Tuple<int, int>>();
+        public List<Tuple<int, int>> possible_moves_diagonal = new List<Tuple<int, int>>();
         public List<Tuple<int, int>> possible_moves = new List<Tuple<int, int>>(); // an array of blank spaces where AI may place a tile
         public int ScoringPlayer; // The player that will score the point (either 1, or 2 || or 0 for no player)
 
@@ -469,25 +506,45 @@ namespace _12x12console
         {
             // Initialize / calculate the properties
             center = centerpoint; 
-            surrounding_pieces = boardstate.GetSurroundingPieces(center); 
-            possible_moves = GetPossibleMoves(surrounding_pieces, boardstate);
+            surrounding_pieces = boardstate.GetSurroundingPieces(center);
+            surrounding_pieces_diagonals = boardstate.GetSurroundingPieces(center, true);
+
+            possible_moves = GetPossibleMoves(boardstate);
+            possible_moves_diagonal = GetPossibleMoves(boardstate, true);
             DetermineScoringMoveAndPlayer(boardstate);
             DetermineScoreBuildingChance(boardstate); // This completes the score building properties
+            DetermineBlockingStatus(boardstate);
             
         }
-        private List<Tuple<int, int>> GetPossibleMoves(List<Tuple<int, int>> s_pieces, GameBoard boardstate)
+        private List<Tuple<int, int>> GetPossibleMoves(GameBoard boardstate, bool diagonals=false)
         {
+            // Determines possible moves surrounding the tile at center.
             List<Tuple<int, int>> returnValue = new List<Tuple<int, int>>();
-            foreach(Tuple<int, int> inList in s_pieces)
+            if (!diagonals)
             {
-                if (boardstate.Grid[inList.Item1, inList.Item2] == Game.Empty)
+                foreach (Tuple<int, int> inList in this.surrounding_pieces)
                 {
-                    // if an element in surrounding_pieces(inList) is empty, then it's a possible move; add it to the list
-                    returnValue.Add(inList); 
+                    if (boardstate.Grid[inList.Item1, inList.Item2] == Game.Empty)
+                    {
+                        // if an element in surrounding_pieces(inList) is empty, then it's a possible move; add it to the list
+                        returnValue.Add(inList);
+                    }
+                }
+            } else
+            {
+                foreach (Tuple<int, int> inList in this.surrounding_pieces_diagonals)
+                {
+                    if (boardstate.Grid[inList.Item1, inList.Item2] == Game.Empty)
+                    {
+                        // if an element in surrounding_pieces_diagonals(inList) is empty, then it's a possible move; add it to the list
+                        returnValue.Add(inList);
+                    }
                 }
             }
+
             return returnValue;
         }
+        
        
         private void DetermineScoringMoveAndPlayer(GameBoard boardstate)
         {
@@ -520,7 +577,12 @@ namespace _12x12console
         public static List<Strategy> GetAllStrategies(GameBoard boardstate)
         {
             // Function will return a list of strategies given the current boardstate
+
+
             List<Strategy> returnList = new List<Strategy>();
+
+           
+
             for (int rows = 0; rows < boardstate.Grid.GetLength(0); rows++)
             {
                 for (int cols = 0; cols < boardstate.Grid.GetLength(1); cols++)

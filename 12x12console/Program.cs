@@ -14,7 +14,11 @@ namespace _12x12console
             Game gGame = new Game(new Tuple<int, int>(6, 6), Game.GameMode.PlayerVAI);
             int signalAIPlayPrompt = 0;
             bool TestMode = false; // For debugging
-            
+
+            gGame.MakeMove(2, new Tuple<int, int>(1, 1));
+            gGame.MakeMove(1, new Tuple<int, int>(1, 0));
+            gGame.MakeMove(1, new Tuple<int, int>(0, 1));
+
             if (TestMode == false)
             {
                 while (true)
