@@ -9,6 +9,10 @@ using System.Runtime.Serialization;
 namespace _12x12console
 {
     public enum PlacementErrors {TileOccupied = -1, OutOfBounds = -2}
+    public static class RandomNumberGenerator
+    {
+        public static Random RndInit = new Random(DateTime.Now.Millisecond);
+    }
     public class Game
     {
         public enum GameMode {PlayerVAI = 0, AIvAI = 1}
@@ -72,13 +76,19 @@ namespace _12x12console
             {
                 p_color = Red;
             }
-          
+
             // Make a move on a tile
-            if (Board.Grid[loc.Item1, loc.Item2] == Empty)
+            if (loc.IsInBounds(this.Board.Grid))
             {
-                Board.Grid[loc.Item1, loc.Item2] = p_color;
-                SweepForScore();
-                return 0;
+                if (Board.Grid[loc.Item1, loc.Item2] == Empty)
+                {
+                    Board.Grid[loc.Item1, loc.Item2] = p_color;
+                    SweepForScore();
+                    return 0;
+                }
+            } else
+            {
+                return (int) PlacementErrors.OutOfBounds; //
             }
             return (int) PlacementErrors.TileOccupied; // Move is invalid
         }
@@ -94,6 +104,7 @@ namespace _12x12console
                 // Do an AIMove. Call a function that will return a Tuple<int, int> indicating next move to play
                 AIPlayer AI_Player = (AIPlayer)Player2; // Cast
                 Tuple<int, int> finalmove = AI_Player.DoAIMove(this.Board);
+                MakeMove(AI_Player.PieceColor, finalmove);
                 Console.WriteLine("Not implemented yet");
                 
             }
@@ -411,8 +422,52 @@ namespace _12x12console
 
             // Next we'll
             Console.WriteLine("There are {0} point scoring strategies", PointScoringStrategies.Count);
+
+            if (PointScoringStrategies.Count > 0)
+            {
+                // Point scoring. Pick a random point scoring move
+                int pick = RandomNumberGenerator.RndInit.Next(0, PointScoringStrategies.Count);
+                return_move = PointScoringStrategies[pick].ScoringMove;
+            }
+
+            if (PointBlockStrategies.Count > 0)
+            {
+                // point blocking - we need to gauge priority
+                Tuple<List<Strategy>, List<Strategy>, List<Strategy>> getExtracted = PrepareBlockingStrategies(PointBlockStrategies, this.PieceColor);
+                if (getExtracted.Item1.Count > 0)
+                {
+                    // Level 4 block
+                    List<Strategy> l4_ = getExtracted.Item1;
+                    List<Strategy> l2_ = getExtracted.Item2;
+                    List<Strategy> l3_ = getExtracted.Item3;
+                }
+            }
             return return_move;
 
+        }
+        private Tuple<List<Strategy>, List<Strategy>, List<Strategy>> PrepareBlockingStrategies (List<Strategy> master_block_list, int defender)
+        {
+            // This will extract blocking strategies by priority level
+            List<Strategy> p4_ = new List<Strategy>();
+            List<Strategy> p3_ = new List<Strategy>();
+            List<Strategy> p2_ = new List<Strategy>();
+
+            
+            foreach (Strategy s in master_block_list)
+            {
+                if (s.BlockPriority == 4 && s.BlockDefender == defender)
+                {
+                    p4_.Add(s);
+                } else if (s.BlockPriority == 3 && s.BlockDefender == defender)
+                {
+                    p3_.Add(s);
+                } else if (s.BlockPriority == 2 && s.BlockDefender == defender)
+                {
+                    p2_.Add(s);
+                }
+            }
+            Tuple<List<Strategy>, List<Strategy>, List<Strategy>> returnList = new Tuple<List<Strategy>, List<Strategy>, List<Strategy>>(p4_, p3_, p2_);
+            return returnList;
         }
         private List<Strategy> GetPointBlockStrategies (List<Strategy> source)
         {
@@ -721,6 +776,19 @@ namespace _12x12console
                 }
             }
             return returnList;
+        }
+        public static bool IsInBounds(this Tuple<int, int> ob, int[,] m)
+        {
+            // Returns true if the tuple is within the bounds of the maxtrix m
+
+            if (ob.Item1 >= 0 && ob.Item1 <= m.GetLength(0))
+            {
+                if (ob.Item2 >= 0 && ob.Item2 <= m.GetLength(1))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

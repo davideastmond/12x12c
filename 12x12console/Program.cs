@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace _12x12console
 {
@@ -15,9 +16,12 @@ namespace _12x12console
             int signalAIPlayPrompt = 0;
             bool TestMode = false; // For debugging
 
-            gGame.MakeMove(2, new Tuple<int, int>(1, 1));
-            gGame.MakeMove(1, new Tuple<int, int>(1, 0));
-            gGame.MakeMove(1, new Tuple<int, int>(0, 1));
+            gGame.MakeMove(2, new Tuple<int, int>(5, 0));
+            gGame.MakeMove(1, new Tuple<int, int>(5, 1));
+            gGame.MakeMove(2, new Tuple<int, int>(5, 2));
+
+            gGame.MakeMove(1, new Tuple<int, int>(0, 0));
+            gGame.MakeMove(2, new Tuple<int, int>(1, 0));
 
             if (TestMode == false)
             {
