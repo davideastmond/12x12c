@@ -201,9 +201,38 @@ namespace _12x12console
         {
             // Initialize a new maxtrix
             Grid = new int[size.Item1, size.Item2];
+            bSize_ = Grid.GetLength(0) * Grid.GetLength(1); // Set the size property which is row * col
             
         }
-        
+
+        private int bSize_;
+        public int BoardSize
+        {
+            get
+            {
+                return bSize_;
+            }
+        }
+       
+        public int EmptySpaceCount
+        {
+            // Property that keeps track of the amount of empty spaces left
+            get
+            {
+                int es_count = 0;
+                for (int rows = 0; rows < Grid.GetLength(0); rows++)
+                {
+                    for (int cols = 0; cols < Grid.GetLength(1); cols++)
+                    {
+                        if (Grid[rows, cols] == Game.Empty)
+                        {
+                            es_count++;
+                        }
+                    }
+                }
+                return es_count;
+            }
+        }
         public void Print()
         {
             // Print out a helper guide
@@ -421,7 +450,7 @@ namespace _12x12console
             
 
             // Next we'll
-            Console.WriteLine("There are {0} point scoring strategies", PointScoringStrategies.Count);
+            // Console.WriteLine("There are {0} point scoring strategies", PointScoringStrategies.Count);
 
             if (PointScoringStrategies.Count > 0)
             {
@@ -429,7 +458,7 @@ namespace _12x12console
                 int tryCount = 0;
                 while (true)
                 {
-                    if (tryCount >= boardstate.Grid.GetLength(0) * boardstate.Grid.GetLength(1))
+                    if (tryCount >= boardstate.BoardSize)
                     {
                         break;
                     }
@@ -437,6 +466,7 @@ namespace _12x12console
                     return_move = PointScoringStrategies[pick].ScoringMove;
                     if (WillMoveEndangerAIPlayer(return_move, boardstate) == false)
                     {
+                        Console.WriteLine("-- Point Scoring strategy taken");
                         return return_move;
                     } else
                     {
@@ -461,31 +491,105 @@ namespace _12x12console
                         int pick = RandomNumberGenerator.RndInit.Next(0, l4_.Count);
                         int r_pick = RandomNumberGenerator.RndInit.Next(0, l4_[pick].possible_moves.Count);
                         return_move = l4_[pick].possible_moves[r_pick];
+                        Console.WriteLine("-- Point Block strategy ");
                         return return_move;
+                        
                     }
                     if (l3_.Count > 0)
                     {
                         int pick = RandomNumberGenerator.RndInit.Next(0, l3_.Count);
                         int possible_move_pick = RandomNumberGenerator.RndInit.Next(0, l3_[pick].possible_moves.Count);
+                        Console.WriteLine("-- Point Block strategy ");
                         return l3_[pick].possible_moves[possible_move_pick];
                     }
                     if (l2_.Count > 0)
                     {
                         int pick = RandomNumberGenerator.RndInit.Next(0, l2_.Count);
                         int possible_move_pick = RandomNumberGenerator.RndInit.Next(0, l2_[pick].possible_moves.Count);
+                        Console.WriteLine("-- Point Block strategy ");
                         return l2_[pick].possible_moves[possible_move_pick];
                     }
                 }
             }
             if (PointBuildingStrategies.Count > 0 )
             {
-                Tuple<List<Strategy>, List<Strategy>, List<Strategy>> getExtracted = PreparePointBuildingStrategies(PointBlockStrategies, this.PieceColor);
+                Tuple<List<Strategy>, List<Strategy>, List<Strategy>> getExtracted = PreparePointBuildingStrategies(PointBuildingStrategies, this.PieceColor);
                 // Build points
                 List<Strategy> l4_ = getExtracted.Item1;
                 List<Strategy> l2_ = getExtracted.Item2;
                 List<Strategy> l3_ = getExtracted.Item3;
-                int pick = RandomNumberGenerator.RndInit.Next(0, PointBuildingStrategies.Count);
                 
+                if (l4_.Count > 0)
+                {
+                    int countbreak = 0;
+                    while (true)
+                    {
+                        if (countbreak >= boardstate.EmptySpaceCount)
+                        {
+                            break; // Break the loop
+                        }
+                        int pb_pick = RandomNumberGenerator.RndInit.Next(0, l4_.Count);
+                        int pick2 = RandomNumberGenerator.RndInit.Next(0, l4_[pb_pick].possible_moves.Count);
+                        
+                        Tuple<int, int> moveChoice = l4_[pb_pick].possible_moves[pick2];
+                        if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
+                        {
+                            Console.WriteLine("-- Point Building strategy ");
+                            return moveChoice;
+                        } else
+                        {
+                            countbreak++;
+                        }
+                    }
+                }          
+                if (l3_.Count > 0)
+                {
+                    int countbreak = 0;
+                    while (true)
+                    {
+                        if (countbreak >= boardstate.EmptySpaceCount)
+                        {
+                            break; // Break the loop
+                        }
+                        int pb_pick = RandomNumberGenerator.RndInit.Next(0, l3_.Count);
+                        int pick2 = RandomNumberGenerator.RndInit.Next(0, l3_[pb_pick].possible_moves.Count);
+
+                        Tuple<int, int> moveChoice = l3_[pb_pick].possible_moves[pick2];
+                        if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
+                        {
+                            Console.WriteLine("-- Point Building strategy ");
+                            return moveChoice;
+                        }
+                        else
+                        {
+                            countbreak++;
+                        }
+                    }
+                }
+                if (l2_.Count > 0)
+                {
+                    int countbreak = 0;
+                    while (true)
+                    {
+                        if (countbreak >= boardstate.EmptySpaceCount)
+                        {
+                            break; // Break the loop
+                        }
+                        int pb_pick = RandomNumberGenerator.RndInit.Next(0, l2_.Count);
+                        int pick2 = RandomNumberGenerator.RndInit.Next(0, l2_[pb_pick].possible_moves.Count);
+
+                        Tuple<int, int> moveChoice = l2_[pb_pick].possible_moves[pick2];
+                        if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
+                        {
+                            Console.WriteLine("-- Point Building strategy ");
+                            return moveChoice;
+                        }
+                        else
+                        {
+                            countbreak++;
+                        }
+                    }
+                }
             }
             return return_move;
 
