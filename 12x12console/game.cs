@@ -105,7 +105,7 @@ namespace _12x12console
                 AIPlayer AI_Player = (AIPlayer)Player2; // Cast
                 Tuple<int, int> finalmove = AI_Player.DoAIMove(this.Board);
                 MakeMove(AI_Player.PieceColor, finalmove);
-                Console.WriteLine("Not implemented yet");
+                Console.WriteLine("AI Makes move at " + finalmove.Item1 + "," + finalmove.Item2);
                 
             }
         }
@@ -426,8 +426,23 @@ namespace _12x12console
             if (PointScoringStrategies.Count > 0)
             {
                 // Point scoring. Pick a random point scoring move
-                int pick = RandomNumberGenerator.RndInit.Next(0, PointScoringStrategies.Count);
-                return_move = PointScoringStrategies[pick].ScoringMove;
+                int tryCount = 0;
+                while (true)
+                {
+                    if (tryCount >= boardstate.Grid.GetLength(0) * boardstate.Grid.GetLength(1))
+                    {
+                        break;
+                    }
+                    int pick = RandomNumberGenerator.RndInit.Next(0, PointScoringStrategies.Count);
+                    return_move = PointScoringStrategies[pick].ScoringMove;
+                    if (WillMoveEndangerAIPlayer(return_move, boardstate) == false)
+                    {
+                        return return_move;
+                    } else
+                    {
+                        tryCount++;
+                    }
+                }
             }
 
             if (PointBlockStrategies.Count > 0)
@@ -440,9 +455,71 @@ namespace _12x12console
                     List<Strategy> l4_ = getExtracted.Item1;
                     List<Strategy> l2_ = getExtracted.Item2;
                     List<Strategy> l3_ = getExtracted.Item3;
+
+                    if (l4_.Count > 0 )
+                    {
+                        int pick = RandomNumberGenerator.RndInit.Next(0, l4_.Count);
+                        int r_pick = RandomNumberGenerator.RndInit.Next(0, l4_[pick].possible_moves.Count);
+                        return_move = l4_[pick].possible_moves[r_pick];
+                        return return_move;
+                    }
+                    if (l3_.Count > 0)
+                    {
+                        int pick = RandomNumberGenerator.RndInit.Next(0, l3_.Count);
+                        int possible_move_pick = RandomNumberGenerator.RndInit.Next(0, l3_[pick].possible_moves.Count);
+                        return l3_[pick].possible_moves[possible_move_pick];
+                    }
+                    if (l2_.Count > 0)
+                    {
+                        int pick = RandomNumberGenerator.RndInit.Next(0, l2_.Count);
+                        int possible_move_pick = RandomNumberGenerator.RndInit.Next(0, l2_[pick].possible_moves.Count);
+                        return l2_[pick].possible_moves[possible_move_pick];
+                    }
                 }
             }
+            if (PointBuildingStrategies.Count > 0 )
+            {
+                Tuple<List<Strategy>, List<Strategy>, List<Strategy>> getExtracted = PreparePointBuildingStrategies(PointBlockStrategies, this.PieceColor);
+                // Build points
+                List<Strategy> l4_ = getExtracted.Item1;
+                List<Strategy> l2_ = getExtracted.Item2;
+                List<Strategy> l3_ = getExtracted.Item3;
+                int pick = RandomNumberGenerator.RndInit.Next(0, PointBuildingStrategies.Count);
+                
+            }
             return return_move;
+
+        }
+        private Tuple<List<Strategy>, List<Strategy>, List<Strategy>> PreparePointBuildingStrategies(List<Strategy> master_scorebuilding_list, int builder)
+        {
+            /*
+             Sort out the score builidng strategies */
+            List<Strategy> p4 = new List<Strategy>();
+            List<Strategy> p3 = new List<Strategy>();
+            List<Strategy> p2 = new List<Strategy>();
+
+            foreach (Strategy s in master_scorebuilding_list)
+            {
+                if (s.ScoreBuildingOpportunity == true)
+                {
+                    if (s.ScoreBuilder == builder)
+                    {
+                        switch (s.ScoreBuildingPriority)
+                        {
+                            case 4:
+                                p4.Add(s);
+                                break;
+                            case 3:
+                                p3.Add(s);
+                                break;
+                            case 2:
+                                p2.Add(s);
+                                break;
+                        }
+                    }
+                }
+            }
+            return new Tuple<List<Strategy>, List<Strategy>, List<Strategy>>(p4, p3, p2);
 
         }
         private Tuple<List<Strategy>, List<Strategy>, List<Strategy>> PrepareBlockingStrategies (List<Strategy> master_block_list, int defender)
@@ -503,7 +580,7 @@ namespace _12x12console
             int opp_piece = GameBoard.GetOppColor(PieceColor); // Gets your opponent's color
 
             // The AI's move should be a whitespace
-            if (boardrefence.Grid[move.Item1, move.Item1] != Game.Empty)
+            if (boardrefence.Grid[move.Item1, move.Item2] != Game.Empty)
             {
                 throw new Exception("Unable to evaluate move, as location isn't empty: AI can only make a move on an empty space.");
             }
@@ -555,6 +632,8 @@ namespace _12x12console
         public int BlockPriority = 0;
 
         public int BlockDefender = 0;
+        
+        
 
         // Strategy type ? Block, Win, Build
         public Strategy(Tuple<int, int> centerpoint, GameBoard boardstate)
@@ -619,7 +698,7 @@ namespace _12x12console
                         ScoringMove = output[0];
                     } else
                     {
-                        throw new InvalidOperationException("Error in Determing ScoringMoveAndPlayer");
+                       // throw new InvalidOperationException("Error in Determing ScoringMoveAndPlayer");
                     }
                     
                 }
