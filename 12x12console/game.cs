@@ -444,6 +444,8 @@ namespace _12x12console
             // Get White space move opportunities
             List<Strategy> WhiteSpaceStrategies = new List<Strategy>();
 
+            // Get White Space blocking strategies
+
             // Get all strategies where there is a potential to build a score
             List<Strategy> PointBuildingStrategies = GetPointBuildingStrategies(masterStrategyList);
 
@@ -626,6 +628,25 @@ namespace _12x12console
             return new Tuple<List<Strategy>, List<Strategy>, List<Strategy>>(p4, p3, p2);
 
         }
+        private List<Strategy> WhiteSpaceBlockingStrategies(List<Strategy> master_list, GameBoard boardstate)
+        {
+            // This prepares a defensive white-space strategy block
+            List<Strategy> returnList = new List<Strategy>();
+
+            int oppPiece = GameBoard.GetOppColor(this.PieceColor);
+            foreach (Strategy s in master_list)
+            {
+                if (s.PieceColorAtCenter == Game.Empty)
+                {
+                    // If the piece at center is the AI's piece
+                    if (s.surrounding_pieces_diagonals.ContainsCountOf(oppPiece, boardstate) > 0 && s.surrounding_pieces_diagonals.ContainsCountOf(this.PieceColor, boardstate) == 0)
+                    {
+
+                    }
+                }
+            }
+            return returnList;
+        }
         private Tuple<List<Strategy>, List<Strategy>, List<Strategy>> PrepareBlockingStrategies (List<Strategy> master_block_list, int defender)
         {
             // This will extract blocking strategies by priority level
@@ -720,6 +741,7 @@ namespace _12x12console
     public class Strategy
     {
         public Tuple<int, int> center; // The target piece. Pieces surround it.
+        public int PieceColorAtCenter;
         public List<Tuple<int, int>> surrounding_pieces = new List<Tuple<int, int>>(); // can be either 4, 3 or 2 in length. They surround the center
         public List<Tuple<int, int>> surrounding_pieces_diagonals = new List<Tuple<int, int>>();
         public List<Tuple<int, int>> possible_moves_diagonal = new List<Tuple<int, int>>();
@@ -734,6 +756,7 @@ namespace _12x12console
 
         public bool BlockOpportunity = false;
         public int BlockPriority = 0;
+        public int WhiteSpaceBlockPriority = 0;
 
         public int BlockDefender = 0;
         
@@ -743,7 +766,9 @@ namespace _12x12console
         public Strategy(Tuple<int, int> centerpoint, GameBoard boardstate)
         {
             // Initialize / calculate the properties
-            center = centerpoint; 
+            center = centerpoint;
+            PieceColorAtCenter = boardstate.Grid[center.Item1, center.Item2];
+
             surrounding_pieces = boardstate.GetSurroundingPieces(center);
             surrounding_pieces_diagonals = boardstate.GetSurroundingPieces(center, true);
 
@@ -752,6 +777,11 @@ namespace _12x12console
             DetermineScoringMoveAndPlayer(boardstate);
             DetermineScoreBuildingChance(boardstate); // This completes the score building properties
             DetermineBlockingStatus(boardstate);
+            WhiteSpaceBlockPriority = DetermineWhiteSpaceDefensiveBlockStrategy(boardstate);
+            
+        }
+        private int DetermineWhiteSpaceDefensiveBlockStrategy(GameBoard boardstate)
+        {
             
         }
         private List<Tuple<int, int>> GetPossibleMoves(GameBoard boardstate, bool diagonals=false)
@@ -815,12 +845,7 @@ namespace _12x12console
         public static List<Strategy> GetAllStrategies(GameBoard boardstate)
         {
             // Function will return a list of strategies given the current boardstate
-
-
             List<Strategy> returnList = new List<Strategy>();
-
-           
-
             for (int rows = 0; rows < boardstate.Grid.GetLength(0); rows++)
             {
                 for (int cols = 0; cols < boardstate.Grid.GetLength(1); cols++)
