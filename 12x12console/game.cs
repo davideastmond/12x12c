@@ -429,7 +429,7 @@ namespace _12x12console
             // Executes an AI Move based on the current game board state. 
             Tuple<int, int> return_move = new Tuple<int, int>(-1,-1); // Default value for an invalid move
             //***************************************
-            List<Strategy> masterStrategyList = Strategy.GetAllStrategies(boardstate); // Get a list of all the master strategies and plays
+            List<Strategy> masterStrategyList = Strategy.GetAllStrategies(boardstate, PieceColor); // Get a list of all the master strategies and plays
             //***************************************
 
             // First let's find all winning strategies, which is defined as the next move shall score a point for the  AI
@@ -439,17 +439,17 @@ namespace _12x12console
             // Get the point-blocking strategies - prevent the opponent from scoring a point
             List<Strategy> PointBlockStrategies = GetPointBlockStrategies(masterStrategyList);
 
-            // Get block opponent white space strategy
+            // Get offensive whitespace strategies
 
-            // Get White space move opportunities
-            List<Strategy> WhiteSpaceStrategies = new List<Strategy>();
+            // Get White space defensive blocking opportunities
+            List<Strategy> WhiteSpaceBlockStrategies = PrepareWhiteSpaceDefensiveBlockStrategies(masterStrategyList);
 
             // Get White Space blocking strategies
 
             // Get all strategies where there is a potential to build a score
             List<Strategy> PointBuildingStrategies = GetPointBuildingStrategies(masterStrategyList);
 
-            
+            /* What we can do is get all possible moves of each strategy and feed it into a final decision algorithm*/
 
             // Next we'll
             // Console.WriteLine("There are {0} point scoring strategies", PointScoringStrategies.Count);
@@ -512,6 +512,10 @@ namespace _12x12console
                         return l2_[pick].possible_moves[possible_move_pick];
                     }
                 }
+            }
+            if (WhiteSpaceBlockStrategies.Count > 0)
+            {
+
             }
             if (PointBuildingStrategies.Count > 0 )
             {
@@ -628,7 +632,20 @@ namespace _12x12console
             return new Tuple<List<Strategy>, List<Strategy>, List<Strategy>>(p4, p3, p2);
 
         }
-        private List<Strategy> WhiteSpaceBlockingStrategies(List<Strategy> master_list, GameBoard boardstate)
+        private List<Strategy> PrepareWhiteSpaceDefensiveBlockStrategies(List<Strategy> master)
+        {
+            List<Strategy> r_List = new List<Strategy>();
+
+            foreach(Strategy s in master)
+            {
+                if (s.WhiteSpaceBlockOpportunity == true && s.WhiteSpaceBlockPriority >= 2)
+                {
+                    r_List.Add(s);
+                }
+            }
+            return r_List;
+        }
+        private List<Strategy> PrepareSpaceBlockingStrategies(List<Strategy> master_list, GameBoard boardstate)
         {
             // This prepares a defensive white-space strategy block
             List<Strategy> returnList = new List<Strategy>();
@@ -756,18 +773,24 @@ namespace _12x12console
 
         public bool BlockOpportunity = false;
         public int BlockPriority = 0;
+        public bool WhiteSpaceBlockOpportunity = false;
         public int WhiteSpaceBlockPriority = 0;
 
         public int BlockDefender = 0;
+        private int in_piece = 0;
+        private int out_piece = 0;
         
         
 
         // Strategy type ? Block, Win, Build
-        public Strategy(Tuple<int, int> centerpoint, GameBoard boardstate)
+        public Strategy(Tuple<int, int> centerpoint, GameBoard boardstate, int _InPiece)
         {
             // Initialize / calculate the properties
             center = centerpoint;
             PieceColorAtCenter = boardstate.Grid[center.Item1, center.Item2];
+            in_piece = _InPiece; // This should be the AI's piece
+            out_piece = GameBoard.GetOppColor(in_piece);
+
 
             surrounding_pieces = boardstate.GetSurroundingPieces(center);
             surrounding_pieces_diagonals = boardstate.GetSurroundingPieces(center, true);
@@ -782,7 +805,21 @@ namespace _12x12console
         }
         private int DetermineWhiteSpaceDefensiveBlockStrategy(GameBoard boardstate)
         {
+            //The center space needs to be white
+            int r_value = 0;
+            if (this.PieceColorAtCenter == Game.Empty)
+            {
+                if (surrounding_pieces.ContainsCountOf(Game.Empty, boardstate) > 0 && surrounding_pieces.ContainsCountOf(in_piece, boardstate) == 0)
+                {
+                    if (surrounding_pieces.ContainsCountOf(out_piece, boardstate) > 0)
+                    {
+                      r_value = this.WhiteSpaceBlockPriority = 6 - this.possible_moves.Count - this.possible_moves.ContainsCountOf(Game.Empty, boardstate);
+                        WhiteSpaceBlockOpportunity = true;
+                    }
+                }
+            }
             
+            return r_value;
         }
         private List<Tuple<int, int>> GetPossibleMoves(GameBoard boardstate, bool diagonals=false)
         {
@@ -842,7 +879,7 @@ namespace _12x12console
                 ScoringMove = new Tuple<int, int>(-1, -1);
             }
         }
-        public static List<Strategy> GetAllStrategies(GameBoard boardstate)
+        public static List<Strategy> GetAllStrategies(GameBoard boardstate, int homepiece)
         {
             // Function will return a list of strategies given the current boardstate
             List<Strategy> returnList = new List<Strategy>();
@@ -850,7 +887,7 @@ namespace _12x12console
             {
                 for (int cols = 0; cols < boardstate.Grid.GetLength(1); cols++)
                 {
-                    Strategy sStrat = new Strategy(new Tuple<int, int>(rows, cols), boardstate);
+                    Strategy sStrat = new Strategy(new Tuple<int, int>(rows, cols), boardstate, homepiece);
 
                     // Check if the possible strategies for sStrat > 0, if so, add it to the master returnList
                     returnList.Add(sStrat);
