@@ -11,7 +11,7 @@ namespace _12x12console
     public enum PlacementErrors {TileOccupied = -1, OutOfBounds = -2}
     public static class RandomNumberGenerator
     {
-        public static Random RndInit = new Random(DateTime.Now.Millisecond);
+        public static Random RndInt = new Random(DateTime.Now.Millisecond);
     }
     public class Game
     {
@@ -24,6 +24,15 @@ namespace _12x12console
         public GameBoard Board;
         public Player Player1;
         public Player Player2;
+
+        private int _moveCount = 0;
+        public int MoveCount
+        {
+            get
+            {
+                return _moveCount;
+            }
+        }
 
         private int _Player1_Score;
         public int Player1_Score
@@ -49,6 +58,7 @@ namespace _12x12console
         {
             // Initialize the game. Set the colors, players and create a gameboard
             Board = new GameBoard(size); // Initialize
+            this._moveCount = 0; // Reset the move count to zero
             if (mode == GameMode.AIvAI)
             {
                 Player1 = new AIPlayer();
@@ -65,7 +75,11 @@ namespace _12x12console
                 this.GameType = mode;
             }
         }
-
+        public void Reset()
+        {
+           
+            
+        }
         public int MakeMove(int P, Tuple<int, int>loc)
         {
             int p_color;
@@ -464,7 +478,7 @@ namespace _12x12console
                     {
                         break;
                     }
-                    int pick = RandomNumberGenerator.RndInit.Next(0, PointScoringStrategies.Count);
+                    int pick = RandomNumberGenerator.RndInt.Next(0, PointScoringStrategies.Count);
                     return_move = PointScoringStrategies[pick].ScoringMove;
                     if (WillMoveEndangerAIPlayer(return_move, boardstate) == false)
                     {
@@ -490,8 +504,8 @@ namespace _12x12console
 
                     if (l4_.Count > 0 )
                     {
-                        int pick = RandomNumberGenerator.RndInit.Next(0, l4_.Count);
-                        int r_pick = RandomNumberGenerator.RndInit.Next(0, l4_[pick].possible_moves.Count);
+                        int pick = RandomNumberGenerator.RndInt.Next(0, l4_.Count);
+                        int r_pick = RandomNumberGenerator.RndInt.Next(0, l4_[pick].possible_moves.Count);
                         return_move = l4_[pick].possible_moves[r_pick];
                         Console.WriteLine("-- Point Block strategy ");
                         return return_move;
@@ -499,15 +513,15 @@ namespace _12x12console
                     }
                     if (l3_.Count > 0)
                     {
-                        int pick = RandomNumberGenerator.RndInit.Next(0, l3_.Count);
-                        int possible_move_pick = RandomNumberGenerator.RndInit.Next(0, l3_[pick].possible_moves.Count);
+                        int pick = RandomNumberGenerator.RndInt.Next(0, l3_.Count);
+                        int possible_move_pick = RandomNumberGenerator.RndInt.Next(0, l3_[pick].possible_moves.Count);
                         Console.WriteLine("-- Point Block strategy ");
                         return l3_[pick].possible_moves[possible_move_pick];
                     }
                     if (l2_.Count > 0)
                     {
-                        int pick = RandomNumberGenerator.RndInit.Next(0, l2_.Count);
-                        int possible_move_pick = RandomNumberGenerator.RndInit.Next(0, l2_[pick].possible_moves.Count);
+                        int pick = RandomNumberGenerator.RndInt.Next(0, l2_.Count);
+                        int possible_move_pick = RandomNumberGenerator.RndInt.Next(0, l2_[pick].possible_moves.Count);
                         Console.WriteLine("-- Point Block strategy ");
                         return l2_[pick].possible_moves[possible_move_pick];
                     }
@@ -515,7 +529,32 @@ namespace _12x12console
             }
             if (WhiteSpaceBlockStrategies.Count > 0)
             {
-
+                foreach(Strategy s in WhiteSpaceBlockStrategies)
+                {
+                    if (s.WhiteSpaceBlockPriority >= 4)
+                    {
+                        // Analyze the possible moves and make sure they don't endanger the player
+                        int count = 0;
+                        // Pick a possible move
+                        while (true)
+                        {
+                            if (count >= s.possible_moves.Count + 5)
+                            {
+                                break;
+                            }
+                            int pick = RandomNumberGenerator.RndInt.Next(0, s.possible_moves.Count);
+                            Tuple<int, int> choice_move = s.possible_moves[pick];
+                            if (!WillMoveEndangerAIPlayer(choice_move, boardstate))
+                            {
+                                Console.WriteLine("White_Space defensive Block strategy chosen");
+                                return choice_move;
+                            } else
+                            {
+                                count++;
+                            }
+                        }
+                    }
+                }
             }
             if (PointBuildingStrategies.Count > 0 )
             {
@@ -534,8 +573,8 @@ namespace _12x12console
                         {
                             break; // Break the loop
                         }
-                        int pb_pick = RandomNumberGenerator.RndInit.Next(0, l4_.Count);
-                        int pick2 = RandomNumberGenerator.RndInit.Next(0, l4_[pb_pick].possible_moves.Count);
+                        int pb_pick = RandomNumberGenerator.RndInt.Next(0, l4_.Count);
+                        int pick2 = RandomNumberGenerator.RndInt.Next(0, l4_[pb_pick].possible_moves.Count);
                         
                         Tuple<int, int> moveChoice = l4_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
@@ -557,8 +596,8 @@ namespace _12x12console
                         {
                             break; // Break the loop
                         }
-                        int pb_pick = RandomNumberGenerator.RndInit.Next(0, l3_.Count);
-                        int pick2 = RandomNumberGenerator.RndInit.Next(0, l3_[pb_pick].possible_moves.Count);
+                        int pb_pick = RandomNumberGenerator.RndInt.Next(0, l3_.Count);
+                        int pick2 = RandomNumberGenerator.RndInt.Next(0, l3_[pb_pick].possible_moves.Count);
 
                         Tuple<int, int> moveChoice = l3_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
@@ -581,8 +620,8 @@ namespace _12x12console
                         {
                             break; // Break the loop
                         }
-                        int pb_pick = RandomNumberGenerator.RndInit.Next(0, l2_.Count);
-                        int pick2 = RandomNumberGenerator.RndInit.Next(0, l2_[pb_pick].possible_moves.Count);
+                        int pb_pick = RandomNumberGenerator.RndInt.Next(0, l2_.Count);
+                        int pick2 = RandomNumberGenerator.RndInt.Next(0, l2_[pb_pick].possible_moves.Count);
 
                         Tuple<int, int> moveChoice = l2_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
@@ -597,6 +636,7 @@ namespace _12x12console
                     }
                 }
             }
+            // If at this point, no strategy has been found, it's probably toward the end of the game
             return return_move;
 
         }
@@ -645,25 +685,7 @@ namespace _12x12console
             }
             return r_List;
         }
-        private List<Strategy> PrepareSpaceBlockingStrategies(List<Strategy> master_list, GameBoard boardstate)
-        {
-            // This prepares a defensive white-space strategy block
-            List<Strategy> returnList = new List<Strategy>();
-
-            int oppPiece = GameBoard.GetOppColor(this.PieceColor);
-            foreach (Strategy s in master_list)
-            {
-                if (s.PieceColorAtCenter == Game.Empty)
-                {
-                    // If the piece at center is the AI's piece
-                    if (s.surrounding_pieces_diagonals.ContainsCountOf(oppPiece, boardstate) > 0 && s.surrounding_pieces_diagonals.ContainsCountOf(this.PieceColor, boardstate) == 0)
-                    {
-
-                    }
-                }
-            }
-            return returnList;
-        }
+        
         private Tuple<List<Strategy>, List<Strategy>, List<Strategy>> PrepareBlockingStrategies (List<Strategy> master_block_list, int defender)
         {
             // This will extract blocking strategies by priority level
