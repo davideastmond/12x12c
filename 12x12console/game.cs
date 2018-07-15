@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.Serialization;
+using System.IO;
 
 namespace _12x12console
 {
@@ -24,6 +25,8 @@ namespace _12x12console
         public GameBoard Board;
         public Player Player1;
         public Player Player2;
+
+        public bool GameIsOn = false;
 
         private int _moveCount = 0;
         public int MoveCount
@@ -80,31 +83,65 @@ namespace _12x12console
            
             
         }
-        public int MakeMove(int P, Tuple<int, int>loc)
+        public void Start()
         {
-            int p_color;
-            if (P == 1)
+            this.GameIsOn = true;
+
+            // Here we can randomly have the AI be first to go
+            int first = RandomNumberGenerator.RndInt.Next(0, 2);
+            if (first == 1)
             {
-                p_color = Blue;
-            } else
-            {
-                p_color = Red;
+                MakeAIMove(); // Do an AI move
             }
 
-            // Make a move on a tile
-            if (loc.IsInBounds(this.Board.Grid))
+        }
+        public void Stop()
+        {
+            this.GameIsOn = false;
+        }
+        public int MakeMove(int P, Tuple<int, int>loc)
+        {
+            if (this.GameIsOn)
             {
-                if (Board.Grid[loc.Item1, loc.Item2] == Empty)
+                int p_color;
+                if (P == 1)
                 {
-                    Board.Grid[loc.Item1, loc.Item2] = p_color;
-                    SweepForScore();
-                    return 0;
+                    p_color = Blue;
                 }
-            } else
-            {
-                return (int) PlacementErrors.OutOfBounds; //
+                else
+                {
+                    p_color = Red;
+                }
+
+                // Make a move on a tile
+                if (loc.IsInBounds(this.Board.Grid))
+                {
+                    if (Board.Grid[loc.Item1, loc.Item2] == Empty)
+                    {
+                        Board.Grid[loc.Item1, loc.Item2] = p_color;
+                        SweepForScore();
+                        Board.Space_Tracker.Remove(new Tuple<int, int>(loc.Item1, loc.Item2));
+                        Console.WriteLine("Empty spaces left: " + Board.Space_Tracker.Count);
+                        if (IsComplete())
+                        {
+                            this.Stop(); // Stop the game
+                            Console.WriteLine("Game has ended.");
+                            Console.WriteLine("Final score Blue: " + this.Player1_Score + " Red: " + this.Player2_Score);
+                        }
+                        return 0;
+                    }
+                }
+                else
+                {
+                    return (int)PlacementErrors.OutOfBounds; //
+                }
+                return (int)PlacementErrors.TileOccupied; // Move is invalid
             }
-            return (int) PlacementErrors.TileOccupied; // Move is invalid
+            else
+            {
+                Console.WriteLine("Game is not started.");
+                return -1;
+            }
         }
         public void MakeAIMove()
         {
@@ -119,24 +156,18 @@ namespace _12x12console
                 AIPlayer AI_Player = (AIPlayer)Player2; // Cast
                 Tuple<int, int> finalmove = AI_Player.DoAIMove(this.Board);
                 MakeMove(AI_Player.PieceColor, finalmove);
-                Console.WriteLine("AI Makes move at " + finalmove.Item1 + "," + finalmove.Item2);
+                Console.WriteLine("CPU plays: " + finalmove.Item1 + "," + finalmove.Item2);
                 
             }
         }
         public bool IsComplete()
         {
             // Returns true if all spaces are occupied with tiles
-            for (int rows = 0; rows < this.Board.Grid.GetLength(0); rows++)
-            {
-                for (int cols = 0; cols < this.Board.Grid.GetLength(1); cols++)
-                {
-                    if (this.Board.Grid[rows, cols] == Empty)
-                    {
-                        return false;
-                    }
-                }
-            }
-            return true;
+           if (Board.Space_Tracker.Count > 0)
+           {
+               return false;
+           }
+           return true;
         }
         public void SweepForScore()
         {
@@ -207,7 +238,8 @@ namespace _12x12console
         
     }
 
-    public class GameBoard
+    [Serializable]
+    public class GameBoard : ISerializable
     {
         public int[,] Grid;
         public List<Tuple<int, int>> AIMoveCache = new List<Tuple<int, int>>();
@@ -216,9 +248,21 @@ namespace _12x12console
             // Initialize a new maxtrix
             Grid = new int[size.Item1, size.Item2];
             bSize_ = Grid.GetLength(0) * Grid.GetLength(1); // Set the size property which is row * col
+            PopulateSpaceTrackerList();
             
         }
-
+        public GameBoard(SerializationInfo info, StreamingContext context)
+        {
+            // Serializable constructor
+            Grid = (int[,])info.GetValue("grid", typeof(int[,]));
+        }
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // The only property that gets serialized is the game's grid.
+            info.AddValue("grid", Grid, typeof(int[,]));
+        }
+        public List<Tuple<int, int>> Space_Tracker = new List<Tuple<int, int>>();
+       
         private int bSize_;
         public int BoardSize
         {
@@ -227,24 +271,23 @@ namespace _12x12console
                 return bSize_;
             }
         }
+        private void PopulateSpaceTrackerList()
+        {
+            for (int rows = 0; rows < Grid.GetLength(0); rows++)
+            {
+                for (int cols = 0; cols < Grid.GetLength(1); cols++)
+                {
+                    Space_Tracker.Add(new Tuple<int, int>(rows, cols));
+                }
+            }
+        }
        
         public int EmptySpaceCount
         {
             // Property that keeps track of the amount of empty spaces left
             get
             {
-                int es_count = 0;
-                for (int rows = 0; rows < Grid.GetLength(0); rows++)
-                {
-                    for (int cols = 0; cols < Grid.GetLength(1); cols++)
-                    {
-                        if (Grid[rows, cols] == Game.Empty)
-                        {
-                            es_count++;
-                        }
-                    }
-                }
-                return es_count;
+                return Space_Tracker.Count;
             }
         }
         public void Print()
@@ -463,6 +506,8 @@ namespace _12x12console
             // Get all strategies where there is a potential to build a score
             List<Strategy> PointBuildingStrategies = GetPointBuildingStrategies(masterStrategyList);
 
+            List<Strategy> RemainingStrategies = GetRemainingStrategies(masterStrategyList);
+
             /* What we can do is get all possible moves of each strategy and feed it into a final decision algorithm*/
 
             // Next we'll
@@ -507,7 +552,7 @@ namespace _12x12console
                         int pick = RandomNumberGenerator.RndInt.Next(0, l4_.Count);
                         int r_pick = RandomNumberGenerator.RndInt.Next(0, l4_[pick].possible_moves.Count);
                         return_move = l4_[pick].possible_moves[r_pick];
-                        Console.WriteLine("-- Point Block strategy ");
+                       // Console.WriteLine("-- Point Block strategy ");
                         return return_move;
                         
                     }
@@ -522,7 +567,7 @@ namespace _12x12console
                     {
                         int pick = RandomNumberGenerator.RndInt.Next(0, l2_.Count);
                         int possible_move_pick = RandomNumberGenerator.RndInt.Next(0, l2_[pick].possible_moves.Count);
-                        Console.WriteLine("-- Point Block strategy ");
+                        // Console.WriteLine("-- Point Block strategy ");
                         return l2_[pick].possible_moves[possible_move_pick];
                     }
                 }
@@ -546,7 +591,7 @@ namespace _12x12console
                             Tuple<int, int> choice_move = s.possible_moves[pick];
                             if (!WillMoveEndangerAIPlayer(choice_move, boardstate))
                             {
-                                Console.WriteLine("White_Space defensive Block strategy chosen");
+                               // Console.WriteLine("White_Space defensive Block strategy chosen");
                                 return choice_move;
                             } else
                             {
@@ -579,7 +624,7 @@ namespace _12x12console
                         Tuple<int, int> moveChoice = l4_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
                         {
-                            Console.WriteLine("-- Point Building strategy ");
+                            //Console.WriteLine("-- Point Building strategy ");
                             return moveChoice;
                         } else
                         {
@@ -602,7 +647,7 @@ namespace _12x12console
                         Tuple<int, int> moveChoice = l3_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
                         {
-                            Console.WriteLine("-- Point Building strategy ");
+                            //Console.WriteLine("-- Point Building strategy ");
                             return moveChoice;
                         }
                         else
@@ -626,7 +671,7 @@ namespace _12x12console
                         Tuple<int, int> moveChoice = l2_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
                         {
-                            Console.WriteLine("-- Point Building strategy ");
+                           // Console.WriteLine("-- Point Building strategy ");
                             return moveChoice;
                         }
                         else
@@ -637,9 +682,39 @@ namespace _12x12console
                 }
             }
             // If at this point, no strategy has been found, it's probably toward the end of the game
+            if (RemainingStrategies.Count > 0)
+            {
+                // We'll have to sort out the remaining strategies
+                // The list should consist of strategies where there are possible moves
+                // How about we randomly pick a strategy and see if it contains a possible move that will not endanger the AI player
+                int count = 0;
+                while (true)
+                {
+                    if (count > boardstate.Space_Tracker.Count)
+                    {
+                        break; // break loop, force the AI to play that move
+                    }
+
+                    int strat_pick = RandomNumberGenerator.RndInt.Next(0, RemainingStrategies.Count); // Random number to pick a strategy
+                    Strategy chosenStrategy = RemainingStrategies[strat_pick]; // Randomly pick a strategy
+                    foreach(Tuple<int, int> pm in chosenStrategy.possible_moves)
+                    {
+                        if (!WillMoveEndangerAIPlayer(pm, boardstate))
+                        {
+                            return pm;
+                        }
+                    }
+                    count++;
+                }
+
+                // Pick a random empty spot
+                int rndSlotPick = RandomNumberGenerator.RndInt.Next(0, boardstate.Space_Tracker.Count);
+                return boardstate.Space_Tracker[rndSlotPick];
+            }
             return return_move;
 
         }
+        
         private Tuple<List<Strategy>, List<Strategy>, List<Strategy>> PreparePointBuildingStrategies(List<Strategy> master_scorebuilding_list, int builder)
         {
             /*
@@ -775,6 +850,26 @@ namespace _12x12console
                 }
             }
             return returnList;
+        }
+        private List<Strategy> GetRemainingStrategies(List<Strategy> masterList)
+        {
+            // Return all strategies that have possible move count > 0
+            List<Strategy> returnList = new List<Strategy>(); // for return
+            foreach(Strategy s in masterList)
+            {
+                // Go through each possible move
+                if (s.possible_moves.Count > 0)
+                {
+                    returnList.Add(s);
+                }
+            }
+            return returnList;
+        }
+        private Tuple<int, int> GetBackUpMove(GameBoard boardstate)
+        {
+            // This function will force the AI to make a move. This usually needs to be called toward the end of the game. The AI strategy needs to prioritize
+            // certain moves, and should avoid playing a move that will cause it to score when there are other moves available
+            return new Tuple<int, int>(-1, -1);
         }
     }
     public class Strategy
@@ -1044,6 +1139,7 @@ namespace _12x12console
             }
             return returnList;
         }
+        
         public static bool IsInBounds(this Tuple<int, int> ob, int[,] m)
         {
             // Returns true if the tuple is within the bounds of the maxtrix m

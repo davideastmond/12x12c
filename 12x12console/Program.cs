@@ -15,6 +15,7 @@ namespace _12x12console
             Game gGame = new Game(new Tuple<int, int>(6, 6), Game.GameMode.PlayerVAI);
             int signalAIPlayPrompt = 0;
             bool TestMode = false; // For debugging
+            int AIGameSpeed = 1000;
             /*
             gGame.MakeMove(2, new Tuple<int, int>(5, 0));
             gGame.MakeMove(1, new Tuple<int, int>(5, 1));
@@ -22,7 +23,7 @@ namespace _12x12console
 
             gGame.MakeMove(1, new Tuple<int, int>(0, 0));
             gGame.MakeMove(2, new Tuple<int, int>(1, 0)); */
-
+            gGame.Start();
             if (TestMode == false)
             {
                 while (true)
@@ -33,7 +34,7 @@ namespace _12x12console
                         // Post score
                         break;
                     }
-                    if (signalAIPlayPrompt == 1)
+                    if (signalAIPlayPrompt == 1 && gGame.GameType == Game.GameMode.PlayerVAI)
                     {
                         signalAIPlayPrompt = 0;
                         Console.WriteLine("AI makes move");
@@ -108,6 +109,27 @@ namespace _12x12console
                         {
                             gGame.Board.Print();
                             Console.WriteLine("Invalid move. " + ex.Message);
+                        }
+                    } else
+                    {
+                        // AI v AI move
+                        AIPlayer AIPlayer1 = (AIPlayer)gGame.Player1;
+                        AIPlayer AIPlayer2 = (AIPlayer)gGame.Player2;
+
+                        while (gGame.GameIsOn)
+                        {
+                            // Player 1 moves
+
+                            Tuple<int, int> P1MoveTuple = AIPlayer1.DoAIMove(gGame.Board);
+                            gGame.MakeMove(AIPlayer1.PieceColor, P1MoveTuple);
+                            gGame.Board.Print();
+                            Thread.Sleep(AIGameSpeed);
+
+                            // Player 2 moves
+                            Tuple<int, int> P2MoveTuple = AIPlayer2.DoAIMove(gGame.Board);
+                            gGame.MakeMove(AIPlayer2.PieceColor, P2MoveTuple);
+                            gGame.Board.Print();
+                            Thread.Sleep(AIGameSpeed);
                         }
                     }
                 }
