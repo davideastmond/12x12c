@@ -9,21 +9,26 @@ namespace _12x12console
 {
     class Program
     {
+        static int episode_count = 10;
+        static int AIGameSpeed = 500;
         static void Main(string[] args)
         {
             // Create a new game
             Game gGame = new Game(new Tuple<int, int>(6, 6), Game.GameMode.PlayerVAI);
+
+            for (int GameRunCount = 0; GameRunCount < episode_count; GameRunCount++)
+            {
+                gGame.Start();
+                RunGame(gGame);
+               
+            }
+            
+        }
+        private static void RunGame(Game gGame)
+        {
             int signalAIPlayPrompt = 0;
             bool TestMode = false; // For debugging
-            int AIGameSpeed = 1000;
-            /*
-            gGame.MakeMove(2, new Tuple<int, int>(5, 0));
-            gGame.MakeMove(1, new Tuple<int, int>(5, 1));
-            gGame.MakeMove(2, new Tuple<int, int>(5, 2));
-
-            gGame.MakeMove(1, new Tuple<int, int>(0, 0));
-            gGame.MakeMove(2, new Tuple<int, int>(1, 0)); */
-            gGame.Start();
+           
             if (TestMode == false)
             {
                 while (true)
@@ -37,19 +42,19 @@ namespace _12x12console
                     if (signalAIPlayPrompt == 1 && gGame.GameType == Game.GameMode.PlayerVAI)
                     {
                         signalAIPlayPrompt = 0;
-                        Console.WriteLine("AI makes move");
+
                         // **************** AI CAN MAKE MOVE HERE
                         gGame.MakeAIMove();
-                        gGame.Board.Print(); // Print the game board with an updated AIMove
+                        gGame.Print(); // Print the game board with an updated AIMove
                     }
                     else
                     {
-                        gGame.Board.Print(); // Print the game board
+                        gGame.Print(); // Print the game board
                     }
                     string[] move_data;
 
                     // If the Game mode is PlayerVAi, we need to prompt the human user for input for a game move
-                    if (gGame.GameType == Game.GameMode.PlayerVAI)
+                    if (gGame.GameType == Game.GameMode.PlayerVAI && gGame.GameIsOn)
                     {
                         Console.Write("Your move? [r,c]:");
                         string input = Console.ReadLine(); // Get input from console. input should be informat x,y
@@ -61,14 +66,16 @@ namespace _12x12console
                             {
                                 TestMode = true; // test as test mode
                                 break; // Exit the loop
-                            } else
+                            }
+                            else
                             {
                                 continue;
                             }
-                        } else if (input == "pb")
+                        }
+                        else if (input == "pb")
                         {
                             // Print the board
-                            gGame.Board.Print();
+                            gGame.Print();
                             continue;
                         }
                         move_data = input.Split(',');
@@ -107,10 +114,11 @@ namespace _12x12console
                         }
                         catch (Exception ex)
                         {
-                            gGame.Board.Print();
+                            gGame.Print();
                             Console.WriteLine("Invalid move. " + ex.Message);
                         }
-                    } else
+                    }
+                    else if(gGame.GameType == Game.GameMode.AIvAI && gGame.GameIsOn)
                     {
                         // AI v AI move
                         AIPlayer AIPlayer1 = (AIPlayer)gGame.Player1;
@@ -122,13 +130,13 @@ namespace _12x12console
 
                             Tuple<int, int> P1MoveTuple = AIPlayer1.DoAIMove(gGame.Board);
                             gGame.MakeMove(AIPlayer1.PieceColor, P1MoveTuple);
-                            gGame.Board.Print();
+                            gGame.Print();
                             Thread.Sleep(AIGameSpeed);
 
                             // Player 2 moves
                             Tuple<int, int> P2MoveTuple = AIPlayer2.DoAIMove(gGame.Board);
                             gGame.MakeMove(AIPlayer2.PieceColor, P2MoveTuple);
-                            gGame.Board.Print();
+                            gGame.Print();
                             Thread.Sleep(AIGameSpeed);
                         }
                     }
@@ -143,7 +151,7 @@ namespace _12x12console
                 while (true)
                 {
                     // For debugging, specify the player
-                    
+
                     Console.Write("Debug move? [p,r,c]:");
                     string input = Console.ReadLine(); // Get input from console. input should be in format x,y
                     if (input == "exit")
@@ -155,10 +163,11 @@ namespace _12x12console
                             string[] _args = new string[2];
                             Main(_args);
                         }
-                    } else if (input == "pb")
+                    }
+                    else if (input == "pb")
                     {
                         // print the board
-                        gGame.Board.Print();
+                        gGame.Print();
                     }
                     string[] move_data;
                     move_data = input.Split(',');
@@ -171,20 +180,24 @@ namespace _12x12console
                         try
                         {
                             gGame.MakeMove(int.Parse(move_data[0]), new Tuple<int, int>(int.Parse(move_data[1]), int.Parse(move_data[2])));
-                            gGame.Board.Print();
-                        } catch (Exception e)
+                            gGame.Print();
+                        }
+                        catch (Exception e)
                         {
                             Console.WriteLine("Input Error {0}", e.Message);
                             continue;
                         }
 
-                    } else
+                    }
+                    else
                     {
                         Console.WriteLine("Invalid input.");
                         continue;
                     }
                 }
-            }
+            
         }
+    }
+
     }
 }

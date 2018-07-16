@@ -85,6 +85,7 @@ namespace _12x12console
         }
         public void Start()
         {
+            this.Board.Clear();
             this.GameIsOn = true;
 
             // Here we can randomly have the AI be first to go
@@ -98,6 +99,71 @@ namespace _12x12console
         public void Stop()
         {
             this.GameIsOn = false;
+        }
+        public void Print()
+        {
+            // Print out a helper guide
+            Console.Clear();
+            Console.Write("  ");
+            Console.ForegroundColor = ConsoleColor.Green;
+            for (int colCount = 0; colCount < Board.Grid.GetLength(1); colCount++)
+            {
+                Console.Write(colCount);
+            }
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.Write("   Blue:" + Player1_Score);
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Write("   Red:" + Player2_Score);
+
+            // New line
+            Console.WriteLine("");
+            Console.ResetColor();
+            // Prints the game board to the console
+            if (Board.Grid != null)
+            {
+                for (int numRows = 0; numRows < Board.Grid.GetLength(0); numRows++)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.Write(numRows + " "); // Row guide
+                    Console.ResetColor();
+                    for (int numCols = 0; numCols < Board.Grid.GetLength(1); numCols++)
+                    {
+                        if (Board.Grid[numRows, numCols] == Game.Blue)
+                        {
+                            if (IsPieceCaptured(new Tuple<int, int>(numRows, numCols)))
+                            {
+                                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                            }
+                            else
+                            {
+                                Console.ForegroundColor = ConsoleColor.Blue;
+                            }
+                        }
+                        else if (Board.Grid[numRows, numCols] == Game.Red)
+                        {
+                            if (IsPieceCaptured(new Tuple<int, int>(numRows, numCols)))
+                            {
+                                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                            }
+                            else
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                            }
+                        }
+                        else
+                        {
+                            Console.ResetColor();
+                        }
+                        Console.Write(Board.Grid[numRows, numCols]);
+                        Console.ResetColor();
+                    }
+                    Console.WriteLine("");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Grid value is null.");
+            }
         }
         public int MakeMove(int P, Tuple<int, int>loc)
         {
@@ -179,9 +245,16 @@ namespace _12x12console
             {
                 for (int cols = 0; cols < this.Board.Grid.GetLength(1); cols++)
                 {
-                    Tuple<int, int> result = IsPieceCaptured(new Tuple<int, int>(rows, cols));
-                    _Player1_Score += result.Item1;
-                    _Player2_Score += result.Item2;
+                    if (IsPieceCaptured(new Tuple<int, int>(rows, cols)))
+                    {
+                        if (Board.Grid[rows, cols] == Game.Blue)
+                        {
+                            _Player2_Score++;
+                        } else if (Board.Grid[rows, cols] == Game.Red)
+                        {
+                            _Player1_Score++;
+                        }
+                    }
                 }
             }
             // Print the score in the console
@@ -201,41 +274,33 @@ namespace _12x12console
                 throw new ArgumentException("Invalid Piece Color.");
             }
         }
-        
-        private Tuple<int, int> IsPieceCaptured(Tuple<int, int> atCenter)
+        private bool IsPieceCaptured(Tuple<int, int> atCenter)
         {
-            // Should return score value <blue, red>
+            // Should return true if the piece atCenter is captured
             // What is the color of piece atCenter?
-            if (Board.Grid[atCenter.Item1, atCenter.Item2] == Game.Empty)
-            {
-                return new Tuple<int, int>(0, 0);
-            }
+
             int pColorAtCenter = this.Board.Grid[atCenter.Item1, atCenter.Item2];
+
+            if (pColorAtCenter == 0)
+            {
+                return false;
+            }
             int OpposingPiece = GetOppColor(pColorAtCenter);
             List<Tuple<int, int>> s_pieces = Board.GetSurroundingPieces(atCenter);
             int s_count = 0;
-            foreach(Tuple<int, int> spot in s_pieces)
+            foreach (Tuple<int, int> spot in s_pieces)
             {
-                if (Board.Grid[spot.Item1, spot.Item2] == OpposingPiece)
+                if (this.Board.Grid[spot.Item1, spot.Item2] == OpposingPiece)
                 {
                     s_count++;
                 }
             }
             if (s_count == s_pieces.Count)
             {
-                if (OpposingPiece == Game.Red)
-                {
-                    return new Tuple<int, int>(0, 1);
-                } else if (OpposingPiece == Game.Blue)
-                {
-                    return new Tuple<int, int>(1, 0);
-                }
-                
+                return true;
             }
-
-            return new Tuple<int, int>(0, 0);
+            return false;
         }
-        
     }
 
     [Serializable]
@@ -245,6 +310,7 @@ namespace _12x12console
         public List<Tuple<int, int>> AIMoveCache = new List<Tuple<int, int>>();
         public GameBoard(Tuple<int, int> size)
         {
+            
             // Initialize a new maxtrix
             Grid = new int[size.Item1, size.Item2];
             bSize_ = Grid.GetLength(0) * Grid.GetLength(1); // Set the size property which is row * col
@@ -290,63 +356,20 @@ namespace _12x12console
                 return Space_Tracker.Count;
             }
         }
-        public void Print()
+        public void Clear()
         {
-            // Print out a helper guide
-            Console.Write("  ");
-            Console.ForegroundColor = ConsoleColor.Green;
-            for (int colCount = 0; colCount < Grid.GetLength(1); colCount++)
+            Space_Tracker.Clear(); // Clear the space tracker array
+            // Clears the board
+            for (int rows = 0; rows < this.Grid.GetLength(0); rows++)
             {
-                Console.Write(colCount);
-            }
-            // New line
-            Console.WriteLine("");
-            Console.ResetColor();
-            // Prints the game board to the console
-            if (Grid != null)
-            {
-                for (int numRows = 0; numRows < Grid.GetLength(0); numRows++)
+                for (int cols = 0; cols < this.Grid.GetLength(1); cols++)
                 {
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.Write(numRows + " "); // Row guide
-                    Console.ResetColor();
-                    for (int numCols = 0; numCols < Grid.GetLength(1); numCols++)
-                    {
-                        if (Grid[numRows, numCols] == Game.Blue)
-                        {
-                            if (IsPieceCaptured(new Tuple<int, int>(numRows, numCols)))
-                            {
-                                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                            }
-                            else
-                            {
-                                Console.ForegroundColor = ConsoleColor.Blue;
-                            }
-                        } else if (Grid[numRows, numCols] == Game.Red)
-                        {
-                            if (IsPieceCaptured(new Tuple<int, int>(numRows, numCols)))
-                            {
-                                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                            }
-                            else
-                            {
-                                Console.ForegroundColor = ConsoleColor.Red;
-                            }
-                        } else
-                        {
-                            Console.ResetColor();
-                        }
-                        Console.Write(Grid[numRows, numCols]);
-                        Console.ResetColor();
-                    }
-                    Console.WriteLine("");
+                    Space_Tracker.Add(new Tuple<int, int>(rows, cols));
+                    Grid[rows, cols] = Game.Empty;
                 }
             }
-            else
-            {
-                Console.WriteLine("Grid value is null.");
-            }
         }
+        
         public static int GetOppColor(int homePColor)
         {
             if (homePColor == 1)
@@ -362,28 +385,7 @@ namespace _12x12console
                 return 0; // Empty...there's no opposite color to empty
             }
         }
-        private bool IsPieceCaptured(Tuple<int, int> atCenter)
-        {
-            // Should return true if the piece atCenter is captured
-            // What is the color of piece atCenter?
-            
-            int pColorAtCenter = this.Grid[atCenter.Item1, atCenter.Item2];
-            int OpposingPiece = GetOppColor(pColorAtCenter);
-            List<Tuple<int, int>> s_pieces = GetSurroundingPieces(atCenter);
-            int s_count = 0;
-            foreach (Tuple<int, int> spot in s_pieces)
-            {
-                if (this.Grid[spot.Item1, spot.Item2] == OpposingPiece)
-                {
-                    s_count++;
-                }
-            }
-            if (s_count == s_pieces.Count)
-            {
-                return true;
-            }
-            return false;
-        }
+        
         public List<Tuple<int, int>> GetSurroundingPieces(Tuple<int, int> atCenter, bool diagonals=false)
         {
             // Gets the 2 to 4 surrounding pieces at a given centerPoint
@@ -435,6 +437,10 @@ namespace _12x12console
             }
 
             return output;
+        }
+        public void GetStats ()
+        {
+            int stats = 0;
         }
         
     }
@@ -501,10 +507,13 @@ namespace _12x12console
             // Get White space defensive blocking opportunities
             List<Strategy> WhiteSpaceBlockStrategies = PrepareWhiteSpaceDefensiveBlockStrategies(masterStrategyList);
 
-            // Get White Space blocking strategies
+            
 
             // Get all strategies where there is a potential to build a score
             List<Strategy> PointBuildingStrategies = GetPointBuildingStrategies(masterStrategyList);
+
+            // White space offense
+            List<Strategy> WhiteSpaceStrategies = FilterWhiteSpaceBuildingStrategies(masterStrategyList, boardstate);
 
             List<Strategy> RemainingStrategies = GetRemainingStrategies(masterStrategyList);
 
@@ -552,7 +561,7 @@ namespace _12x12console
                         int pick = RandomNumberGenerator.RndInt.Next(0, l4_.Count);
                         int r_pick = RandomNumberGenerator.RndInt.Next(0, l4_[pick].possible_moves.Count);
                         return_move = l4_[pick].possible_moves[r_pick];
-                       // Console.WriteLine("-- Point Block strategy ");
+                        Console.WriteLine("-- Point Block strategy ");
                         return return_move;
                         
                     }
@@ -587,22 +596,52 @@ namespace _12x12console
                             {
                                 break;
                             }
-                            int pick = RandomNumberGenerator.RndInt.Next(0, s.possible_moves.Count);
+                            
+                             int pick = RandomNumberGenerator.RndInt.Next(0, s.possible_moves.Count);
                             Tuple<int, int> choice_move = s.possible_moves[pick];
+                            
                             if (!WillMoveEndangerAIPlayer(choice_move, boardstate))
                             {
-                               // Console.WriteLine("White_Space defensive Block strategy chosen");
+                               Console.WriteLine("White_Space defensive Block strategy chosen");
                                 return choice_move;
                             } else
                             {
                                 count++;
-                            }
+                            } 
                         }
                     }
                 }
             }
             if (PointBuildingStrategies.Count > 0 )
             {
+                // Here we need some nuance. Let's also check if there are any white space strategies
+                if (WhiteSpaceStrategies.Count > 0)
+                {
+                    int count = 0;
+                    while (true)
+                    {
+                        if (count > boardstate.EmptySpaceCount)
+                        {
+                            break;
+                        }
+                        // pull a strategy from the whitespace strategies
+                        Strategy potentialStrategy = WhiteSpaceBlockStrategies.GetRandom();
+
+                        // int rnd = RandomNumberGenerator.RndInt.Next(0, WhiteSpaceStrategies.Count);
+                        Tuple<int, int> returnStrat = potentialStrategy.possible_moves_diagonal.GetRandom();
+                        if (WillMoveEndangerAIPlayer(returnStrat, boardstate))
+                        {
+                            count++;
+                        } else
+                        {
+                            System.Diagnostics.Debug.WriteLine("White Space strategy.");
+                            return returnStrat;
+                            
+                        }
+                    }
+                }
+
+
                 Tuple<List<Strategy>, List<Strategy>, List<Strategy>> getExtracted = PreparePointBuildingStrategies(PointBuildingStrategies, this.PieceColor);
                 // Build points
                 List<Strategy> l4_ = getExtracted.Item1;
@@ -622,9 +661,9 @@ namespace _12x12console
                         int pick2 = RandomNumberGenerator.RndInt.Next(0, l4_[pb_pick].possible_moves.Count);
                         
                         Tuple<int, int> moveChoice = l4_[pb_pick].possible_moves[pick2];
-                        if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
+                        if (!WillMoveEndangerAIPlayer(moveChoice, boardstate) && !WillMoveSpoilWhiteSpaceStrategy(moveChoice, boardstate))
                         {
-                            //Console.WriteLine("-- Point Building strategy ");
+                            Console.WriteLine("-- Point Building strategy ");
                             return moveChoice;
                         } else
                         {
@@ -647,7 +686,7 @@ namespace _12x12console
                         Tuple<int, int> moveChoice = l3_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
                         {
-                            //Console.WriteLine("-- Point Building strategy ");
+                            Console.WriteLine("-- Point Building strategy ");
                             return moveChoice;
                         }
                         else
@@ -671,7 +710,7 @@ namespace _12x12console
                         Tuple<int, int> moveChoice = l2_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
                         {
-                           // Console.WriteLine("-- Point Building strategy ");
+                            Console.WriteLine("-- Point Building strategy ");
                             return moveChoice;
                         }
                         else
@@ -839,6 +878,17 @@ namespace _12x12console
             }
             return false;
         }
+        public bool WillMoveSpoilWhiteSpaceStrategy(Tuple<int, int> move, GameBoard boardreference)
+        {
+            // This will evaluate if the next move will cancel out a white space hole / trap. The AI shouldn't spoil its own white spaces
+            List<Tuple<int, int>> s_pieces = boardreference.GetSurroundingPieces(move);
+            if (s_pieces.ContainsCountOf(this.PieceColor, boardreference) == s_pieces.Count)
+            {
+                return true;
+            }
+
+            return false;
+        }
         public List<Strategy> GetPointBuildingStrategies(List<Strategy> masterList)
         {
             List<Strategy> returnList = new List<Strategy>();
@@ -870,6 +920,29 @@ namespace _12x12console
             // This function will force the AI to make a move. This usually needs to be called toward the end of the game. The AI strategy needs to prioritize
             // certain moves, and should avoid playing a move that will cause it to score when there are other moves available
             return new Tuple<int, int>(-1, -1);
+        }
+        private List<Strategy> FilterWhiteSpaceBuildingStrategies(List<Strategy> masterList, GameBoard boardstate)
+        {
+            List<Strategy> returnList = new List<Strategy>();
+
+            // We're going to search for potential white space strategies. We want any strategy where the center is empty or our in piece. We also want any
+            // strategy has diagonals that have in pieces or are all empty
+            int OppColor = GameBoard.GetOppColor(this.PieceColor);
+            foreach (Strategy s in masterList)
+            {
+                if (s.PieceColorAtCenter == Game.Empty || s.PieceColorAtCenter == this.PieceColor)
+                {
+                    if (s.surrounding_pieces_diagonals.ContainsCountOf(OppColor, boardstate) > 0 || s.surrounding_pieces_diagonals.ContainsCountOf(Game.Empty, boardstate) == 0)
+                    {
+                        continue;
+                    } else
+                    {
+                        returnList.Add(s);
+                    }
+                }
+            }
+
+            return returnList;
         }
     }
     public class Strategy
@@ -1153,5 +1226,18 @@ namespace _12x12console
             }
             return false;
         }
+        public static T GetRandom<T>(this List<T> ob)
+        {
+            if (ob.Count > 0)
+            {
+                int Pick = RandomNumberGenerator.RndInt.Next(0, ob.Count);
+                return ob[Pick];
+            }
+            else
+            {
+                return default(T);
+            }
+        }
+       
     }
 }
