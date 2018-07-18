@@ -26,7 +26,10 @@ namespace _12x12console
         public Player Player1;
         public Player Player2;
 
+        private bool Scroll_Update;
+
         public bool GameIsOn = false;
+        private Tuple<int, int> recentMove = new Tuple<int, int>(-1, -1);
 
         private int _moveCount = 0;
         public int MoveCount
@@ -57,11 +60,13 @@ namespace _12x12console
 
         public GameMode GameType;
        
-        public Game(Tuple<int, int> size, GameMode mode)
+        public Game(Tuple<int, int> size, GameMode mode, bool ScrollUpdate = false)
         {
             // Initialize the game. Set the colors, players and create a gameboard
             Board = new GameBoard(size); // Initialize
             this._moveCount = 0; // Reset the move count to zero
+            Scroll_Update = ScrollUpdate;
+
             if (mode == GameMode.AIvAI)
             {
                 Player1 = new AIPlayer();
@@ -80,7 +85,8 @@ namespace _12x12console
         }
         public void Reset()
         {
-           
+            this.recentMove = new Tuple<int, int>(-1, -1);
+            this.Board.Clear();
             
         }
         public void Start()
@@ -103,7 +109,11 @@ namespace _12x12console
         public void Print()
         {
             // Print out a helper guide
-            Console.Clear();
+
+            if (Scroll_Update == true)
+            {
+                Console.Clear();
+            }
             Console.Write("  ");
             Console.ForegroundColor = ConsoleColor.Green;
             for (int colCount = 0; colCount < Board.Grid.GetLength(1); colCount++)
@@ -157,6 +167,12 @@ namespace _12x12console
                         Console.Write(Board.Grid[numRows, numCols]);
                         Console.ResetColor();
                     }
+                    if (recentMove.Item1 == numRows)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.Write(" <");
+                        Console.ResetColor();
+                    }
                     Console.WriteLine("");
                 }
             }
@@ -187,7 +203,7 @@ namespace _12x12console
                         Board.Grid[loc.Item1, loc.Item2] = p_color;
                         SweepForScore();
                         Board.Space_Tracker.Remove(new Tuple<int, int>(loc.Item1, loc.Item2));
-                        Console.WriteLine("Empty spaces left: " + Board.Space_Tracker.Count);
+                        recentMove = loc;
                         if (IsComplete())
                         {
                             this.Stop(); // Stop the game
@@ -257,9 +273,6 @@ namespace _12x12console
                     }
                 }
             }
-            // Print the score in the console
-            Console.WriteLine("Score: Blue: {0}", _Player1_Score);
-            Console.WriteLine("Score: Red: {0}", _Player2_Score);
         }
         private int GetOppColor(int homePColor)
         {
@@ -437,12 +450,7 @@ namespace _12x12console
             }
 
             return output;
-        }
-        public void GetStats ()
-        {
-            int stats = 0;
-        }
-        
+        }     
     }
     public abstract class Player
     {
@@ -481,6 +489,7 @@ namespace _12x12console
     }
     public class AIPlayer : Player
     {
+        public bool EnableWhiteSpaceStrategy = true;
         public AIPlayer()
         {
             
@@ -513,6 +522,7 @@ namespace _12x12console
             List<Strategy> PointBuildingStrategies = GetPointBuildingStrategies(masterStrategyList);
 
             // White space offense
+            
             List<Strategy> WhiteSpaceStrategies = FilterWhiteSpaceBuildingStrategies(masterStrategyList, boardstate);
 
             List<Strategy> RemainingStrategies = GetRemainingStrategies(masterStrategyList);
@@ -615,33 +625,50 @@ namespace _12x12console
             if (PointBuildingStrategies.Count > 0 )
             {
                 // Here we need some nuance. Let's also check if there are any white space strategies
-                if (WhiteSpaceStrategies.Count > 0)
+                if (this.EnableWhiteSpaceStrategy)
                 {
-                    int count = 0;
-                    while (true)
+                    if (WhiteSpaceStrategies.Count > 0)
                     {
-                        if (count > boardstate.EmptySpaceCount)
+                        /* We should make sure we check for any white space*/
+                        List<Strategy> selectedAdvancedStrategies = new List<Strategy>();
+                        foreach (Strategy white_space in WhiteSpaceStrategies)
                         {
-                            break;
+                            // Prioritize white space strategies already in play
+                            // Get those first
+                            if (white_space.surrounding_pieces_diagonals.ContainsCountOf(this.PieceColor, boardstate) > 0 &&
+                                white_space.surrounding_pieces_diagonals.ContainsCountOf(this.PieceColor, boardstate) < white_space.surrounding_pieces_diagonals.Count
+                                && white_space.surrounding_pieces_diagonals.ContainsCountOf(Game.Empty, boardstate) > 0)
+                            {
+                                selectedAdvancedStrategies.Add(white_space);
+                            }
                         }
-                        // pull a strategy from the whitespace strategies
-                        Strategy potentialStrategy = WhiteSpaceBlockStrategies.GetRandom();
-
-                        // int rnd = RandomNumberGenerator.RndInt.Next(0, WhiteSpaceStrategies.Count);
-                        Tuple<int, int> returnStrat = potentialStrategy.possible_moves_diagonal.GetRandom();
-                        if (WillMoveEndangerAIPlayer(returnStrat, boardstate))
+                        // Let's check this list and make sure it's greater than zero.
+                        
+                        if (selectedAdvancedStrategies.Count > 0)
                         {
-                            count++;
-                        } else
-                        {
-                            System.Diagnostics.Debug.WriteLine("White Space strategy.");
-                            return returnStrat;
+                            // Choose the highest
+                            int highCount = 1; // Default
+                            int targetIndex = -1;
+                            int c = 0;
+                            foreach(Strategy _s in selectedAdvancedStrategies)
+                            {
+                                
+                                if (_s.surrounding_pieces_diagonals.ContainsCountOf(this.PieceColor, boardstate) > highCount)
+                                {
+                                    highCount = _s.surrounding_pieces_diagonals.ContainsCountOf(this.PieceColor, boardstate);
+                                    targetIndex = c;
+                                }
+                                c++;
+                            }
+                            if (targetIndex >= 0)
+                            {
+                                selectedAdvancedStrategies[targetIndex].possible_moves_diagonal.GetRandom();
+                                Console.WriteLine("White space advanced offensive strategy chosen");
+                            }
                             
                         }
                     }
                 }
-
-
                 Tuple<List<Strategy>, List<Strategy>, List<Strategy>> getExtracted = PreparePointBuildingStrategies(PointBuildingStrategies, this.PieceColor);
                 // Build points
                 List<Strategy> l4_ = getExtracted.Item1;
@@ -941,7 +968,6 @@ namespace _12x12console
                     }
                 }
             }
-
             return returnList;
         }
     }
@@ -969,8 +995,6 @@ namespace _12x12console
         public int BlockDefender = 0;
         private int in_piece = 0;
         private int out_piece = 0;
-        
-        
 
         // Strategy type ? Block, Win, Build
         public Strategy(Tuple<int, int> centerpoint, GameBoard boardstate, int _InPiece)
@@ -980,7 +1004,6 @@ namespace _12x12console
             PieceColorAtCenter = boardstate.Grid[center.Item1, center.Item2];
             in_piece = _InPiece; // This should be the AI's piece
             out_piece = GameBoard.GetOppColor(in_piece);
-
 
             surrounding_pieces = boardstate.GetSurroundingPieces(center);
             surrounding_pieces_diagonals = boardstate.GetSurroundingPieces(center, true);
@@ -1039,8 +1062,6 @@ namespace _12x12console
 
             return returnValue;
         }
-        
-       
         private void DetermineScoringMoveAndPlayer(GameBoard boardstate)
         {
             // This will populate the properties: ScoringPlayer and ScoringMove
@@ -1225,6 +1246,17 @@ namespace _12x12console
                 }
             }
             return false;
+        }
+        public static T GetRandom<T>(this T[] ob)
+        {
+            if (ob.Length > 0)
+            {
+                int Pick = RandomNumberGenerator.RndInt.Next(0, ob.Length);
+                return ob[Pick];
+            } else
+            {
+                return default(T);
+            }
         }
         public static T GetRandom<T>(this List<T> ob)
         {

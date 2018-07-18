@@ -10,11 +10,11 @@ namespace _12x12console
     class Program
     {
         static int episode_count = 10;
-        static int AIGameSpeed = 500;
+        static int AIGameSpeed = 350;
         static void Main(string[] args)
         {
             // Create a new game
-            Game gGame = new Game(new Tuple<int, int>(6, 6), Game.GameMode.PlayerVAI);
+            Game gGame = new Game(new Tuple<int, int>(6, 7), Game.GameMode.PlayerVAI, false);
 
             for (int GameRunCount = 0; GameRunCount < episode_count; GameRunCount++)
             {
@@ -124,18 +124,24 @@ namespace _12x12console
                         AIPlayer AIPlayer1 = (AIPlayer)gGame.Player1;
                         AIPlayer AIPlayer2 = (AIPlayer)gGame.Player2;
 
+                        // Testing purposes, make one AI use the white space strategy
+                        AIPlayer1.EnableWhiteSpaceStrategy = true;
+                        AIPlayer2.EnableWhiteSpaceStrategy = false;
+
                         while (gGame.GameIsOn)
                         {
                             // Player 1 moves
 
                             Tuple<int, int> P1MoveTuple = AIPlayer1.DoAIMove(gGame.Board);
                             gGame.MakeMove(AIPlayer1.PieceColor, P1MoveTuple);
+                            Console.WriteLine("Blue plays (" + P1MoveTuple.Item1 + ", " + P1MoveTuple.Item2 + ")");
                             gGame.Print();
                             Thread.Sleep(AIGameSpeed);
 
                             // Player 2 moves
                             Tuple<int, int> P2MoveTuple = AIPlayer2.DoAIMove(gGame.Board);
                             gGame.MakeMove(AIPlayer2.PieceColor, P2MoveTuple);
+                            Console.WriteLine("Red plays (" + P2MoveTuple.Item1 + ", " + P2MoveTuple.Item2 + ")");
                             gGame.Print();
                             Thread.Sleep(AIGameSpeed);
                         }
