@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.Serialization;
 using System.IO;
+using System.Windows;
 
 namespace _12x12console
 {
@@ -100,6 +101,7 @@ namespace _12x12console
             {
                 MakeAIMove(); // Do an AI move
             }
+            
 
         }
         public void Stop()
@@ -172,6 +174,10 @@ namespace _12x12console
                         Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.Write(" <");
                         Console.ResetColor();
+                    } else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Black;
+                        Console.ResetColor();
                     }
                     Console.WriteLine("");
                 }
@@ -204,11 +210,15 @@ namespace _12x12console
                         SweepForScore();
                         Board.Space_Tracker.Remove(new Tuple<int, int>(loc.Item1, loc.Item2));
                         recentMove = loc;
+                        
                         if (IsComplete())
                         {
                             this.Stop(); // Stop the game
                             Console.WriteLine("Game has ended.");
                             Console.WriteLine("Final score Blue: " + this.Player1_Score + " Red: " + this.Player2_Score);
+                            int[,] transformed_board = this.Board.Grid;
+                            transformed_board.Multiply(-1);
+                            transformed_board.Print();
                         }
                         return 0;
                     }
@@ -320,7 +330,7 @@ namespace _12x12console
     public class GameBoard : ISerializable
     {
         public int[,] Grid;
-        public List<Tuple<int, int>> AIMoveCache = new List<Tuple<int, int>>();
+        
         public GameBoard(Tuple<int, int> size)
         {
             
@@ -662,8 +672,10 @@ namespace _12x12console
                             }
                             if (targetIndex >= 0)
                             {
-                                selectedAdvancedStrategies[targetIndex].possible_moves_diagonal.GetRandom();
+                                Tuple<int, int> ws_return_move = selectedAdvancedStrategies[targetIndex].possible_moves_diagonal.GetRandom();
                                 Console.WriteLine("White space advanced offensive strategy chosen");
+                                return ws_return_move;
+                                
                             }
                             
                         }
@@ -774,8 +786,8 @@ namespace _12x12console
                 }
 
                 // Pick a random empty spot
-                int rndSlotPick = RandomNumberGenerator.RndInt.Next(0, boardstate.Space_Tracker.Count);
-                return boardstate.Space_Tracker[rndSlotPick];
+                Tuple<int, int> final_rnd_spot = boardstate.Space_Tracker.GetRandom();
+                return final_rnd_spot;
             }
             return return_move;
 
@@ -1026,7 +1038,7 @@ namespace _12x12console
                 {
                     if (surrounding_pieces.ContainsCountOf(out_piece, boardstate) > 0)
                     {
-                      r_value = this.WhiteSpaceBlockPriority = 6 - this.possible_moves.Count - this.possible_moves.ContainsCountOf(Game.Empty, boardstate);
+                      r_value = 6 - this.possible_moves.Count - this.possible_moves.ContainsCountOf(Game.Empty, boardstate);
                         WhiteSpaceBlockOpportunity = true;
                     }
                 }
@@ -1172,7 +1184,7 @@ namespace _12x12console
             }
             
             // Evaluate the surrounding pieces
-            if (surrounding_pieces.ContainsCountOf(boardstate.Grid[center.Item1, center.Item2], boardstate) > 0 )
+            if (surrounding_pieces.ContainsCountOf(targetColorAtCenter, boardstate) > 0 )
             {
                 // Abort as the defender has blocked the aggressor
                 BlockOpportunity = false;
@@ -1184,7 +1196,7 @@ namespace _12x12console
                 {
                     // surrounding pieces contains empty space and not of the defender's pieces
                     BlockOpportunity = true;
-                    this.BlockDefender = boardstate.Grid[center.Item1, center.Item2]; // The defender clearly is the piece at center
+                    this.BlockDefender = targetColorAtCenter; // The defender clearly is the piece at center
                     this.BlockPriority = 5 - surrounding_pieces.ContainsCountOf(Game.Empty, boardstate);
                 }
             }
@@ -1270,6 +1282,30 @@ namespace _12x12console
                 return default(T);
             }
         }
-       
+        public static int[,] Multiply(this int[,] ob, int multiplier)
+        {
+            int[,] r_result = ob;
+            for (int r = 0; r < ob.GetLength(0); r++)
+            {
+                for (int c = 0; c < ob.GetLength(1); c++)
+                {
+                    r_result[r, c] = ob[r, c] * multiplier;
+                }
+            }
+            return r_result;
+        }
+        public static void Print(this int[,] ob)
+        {
+            for (int r = 0; r < ob.GetLength(0); r++)
+            {
+                Console.WriteLine("");
+                for (int col = 0; col < ob.GetLength(1); col++)
+                {
+                    Console.Write(ob[r, col]);
+                }
+            }
+            
+            
+        }
     }
 }

@@ -9,21 +9,20 @@ namespace _12x12console
 {
     class Program
     {
-        static int episode_count = 10;
+        static int episode_count = 1;
         static int AIGameSpeed = 350;
         static void Main(string[] args)
         {
             // Create a new game
-            Game gGame = new Game(new Tuple<int, int>(6, 7), Game.GameMode.PlayerVAI, false);
+            Game gGame = new Game(new Tuple<int, int>(4, 4), Game.GameMode.AIvAI, false);
 
             for (int GameRunCount = 0; GameRunCount < episode_count; GameRunCount++)
             {
                 gGame.Start();
                 RunGame(gGame);
-               
             }
-            
         }
+
         private static void RunGame(Game gGame)
         {
             int signalAIPlayPrompt = 0;
@@ -125,8 +124,8 @@ namespace _12x12console
                         AIPlayer AIPlayer2 = (AIPlayer)gGame.Player2;
 
                         // Testing purposes, make one AI use the white space strategy
-                        AIPlayer1.EnableWhiteSpaceStrategy = true;
-                        AIPlayer2.EnableWhiteSpaceStrategy = false;
+                        AIPlayer1.EnableWhiteSpaceStrategy = false;
+                        AIPlayer2.EnableWhiteSpaceStrategy = true;
 
                         while (gGame.GameIsOn)
                         {
