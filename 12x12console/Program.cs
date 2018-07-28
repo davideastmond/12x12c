@@ -4,18 +4,21 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Windows.Forms;
 
 namespace _12x12console
 {
     class Program
     {
-        static int episode_count = 1;
-        static int AIGameSpeed = 350;
+        static int episode_count = 5;
+        static int AIGameSpeed = 200;
         static void Main(string[] args)
         {
             // Create a new game
-            Game gGame = new Game(new Tuple<int, int>(4, 4), Game.GameMode.AIvAI, false);
-
+            Game gGame = new Game(new Tuple<int, int>(6, 6), Game.GameMode.AIvAI, false);
+            gameform GForm = new gameform();
+            Thread mThread = new Thread(()=> GForm.ShowDialog());
+            mThread.Start();
             for (int GameRunCount = 0; GameRunCount < episode_count; GameRunCount++)
             {
                 gGame.Start();

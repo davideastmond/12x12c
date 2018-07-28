@@ -217,8 +217,7 @@ namespace _12x12console
                             Console.WriteLine("Game has ended.");
                             Console.WriteLine("Final score Blue: " + this.Player1_Score + " Red: " + this.Player2_Score);
                             int[,] transformed_board = this.Board.Grid;
-                            transformed_board.Multiply(-1);
-                            transformed_board.Print();
+                           
                         }
                         return 0;
                     }
