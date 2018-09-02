@@ -15,6 +15,7 @@ namespace _12x12console
         public gameform()
         {
             InitializeComponent();
+
         }
     }
 }

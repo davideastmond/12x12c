@@ -11,12 +11,47 @@ using System.Windows;
 namespace _12x12console
 {
     public enum PlacementErrors {TileOccupied = -1, OutOfBounds = -2}
+
+    // This represents the gameboard size [row, col]
+    public struct Gamesize
+    {
+        public int X;
+        public int Y;
+        public Gamesize(int _x, int _y)
+        {
+            X = _x;
+            Y = _y;
+        }
+    }
     public static class RandomNumberGenerator
     {
         public static Random RndInt = new Random(DateTime.Now.Millisecond);
     }
+    public class GameEndedEventArgs : EventArgs
+    {
+        public Tuple<int, int> FinalScore; // The final score tabulation
+        public Player Winner { get; private set;} // Who won the game
+    }
+
+    public class PointScoreEventArgs : EventArgs
+    {
+        public Tuple<int, int> PieceCaptureLocation; // Keeps track of the [row, col] where point was scored (the location of the captured piece
+        public Tuple<int, int> ScoringMove; // Keeps track of the [row, col] of the move made that causes the point to be scored
+        public Player Scorer { get; private set; } // Who scored
+        public Tuple<int, int> CurrentScore; // Current Score
+        public int MoveNumber { get; private set; } // The move number at which the scoring took place
+    }
     public class Game
     {
+        public delegate void GameEnded(object sender, GameEndedEventArgs e);
+        public event GameEnded OnGameFinished;
+
+        public delegate void GameStarted(object sender, EventArgs e);
+        public event GameStarted OnGameStarted;
+
+        public delegate void PointScored(object sender, PointScoreEventArgs e);
+        public event PointScored OnPointScored;
+
         public enum GameMode {PlayerVAI = 0, AIvAI = 1}
         
         public const int Empty = 0;
@@ -83,7 +118,28 @@ namespace _12x12console
                 Player2.PieceColor = Red;
                 this.GameType = mode;
             }
+
+            // Subscribe to the events
+            this.OnPointScored += Game_OnPointScored;
+            this.OnGameStarted += Game_OnGameStarted;
+            this.OnGameFinished += Game_OnGameFinished;
         }
+
+        private void Game_OnGameFinished(object sender, GameEndedEventArgs e)
+        {
+            // throw new NotImplementedException();
+        }
+
+        private void Game_OnGameStarted(object sender, EventArgs e)
+        {
+            // throw new NotImplementedException();
+        }
+
+        private void Game_OnPointScored(object sender, PointScoreEventArgs e)
+        {
+            // throw new NotImplementedException();
+        }
+
         public void Reset()
         {
             this.recentMove = new Tuple<int, int>(-1, -1);
@@ -94,6 +150,10 @@ namespace _12x12console
         {
             this.Board.Clear();
             this.GameIsOn = true;
+
+            EventArgs args = new EventArgs();
+            // Signal that a game has started by raising the event
+
 
             // Here we can randomly have the AI be first to go
             int first = RandomNumberGenerator.RndInt.Next(0, 2);
@@ -574,29 +634,32 @@ namespace _12x12console
                     List<Strategy> l4_ = getExtracted.Item1;
                     List<Strategy> l2_ = getExtracted.Item2;
                     List<Strategy> l3_ = getExtracted.Item3;
+                    int pb_count = 0;
+                    while (pb_count < getExtracted.Item1.Count * 4)
+                    {
+                        if (l4_.Count > 0)
+                        {
+                            int pick = RandomNumberGenerator.RndInt.Next(0, l4_.Count);
+                            int r_pick = RandomNumberGenerator.RndInt.Next(0, l4_[pick].possible_moves.Count);
+                            return_move = l4_[pick].possible_moves[r_pick];
+                            Console.WriteLine("-- (4) Point Block strategy ");
+                            return return_move;
 
-                    if (l4_.Count > 0 )
-                    {
-                        int pick = RandomNumberGenerator.RndInt.Next(0, l4_.Count);
-                        int r_pick = RandomNumberGenerator.RndInt.Next(0, l4_[pick].possible_moves.Count);
-                        return_move = l4_[pick].possible_moves[r_pick];
-                        Console.WriteLine("-- Point Block strategy ");
-                        return return_move;
-                        
-                    }
-                    if (l3_.Count > 0)
-                    {
-                        int pick = RandomNumberGenerator.RndInt.Next(0, l3_.Count);
-                        int possible_move_pick = RandomNumberGenerator.RndInt.Next(0, l3_[pick].possible_moves.Count);
-                        Console.WriteLine("-- Point Block strategy ");
-                        return l3_[pick].possible_moves[possible_move_pick];
-                    }
-                    if (l2_.Count > 0)
-                    {
-                        int pick = RandomNumberGenerator.RndInt.Next(0, l2_.Count);
-                        int possible_move_pick = RandomNumberGenerator.RndInt.Next(0, l2_[pick].possible_moves.Count);
-                        // Console.WriteLine("-- Point Block strategy ");
-                        return l2_[pick].possible_moves[possible_move_pick];
+                        }
+                        if (l3_.Count > 0)
+                        {
+                            int pick = RandomNumberGenerator.RndInt.Next(0, l3_.Count);
+                            int possible_move_pick = RandomNumberGenerator.RndInt.Next(0, l3_[pick].possible_moves.Count);
+                            Console.WriteLine("-- (3) Point Block strategy ");
+                            return l3_[pick].possible_moves[possible_move_pick];
+                        }
+                        if (l2_.Count > 0)
+                        {
+                            int pick = RandomNumberGenerator.RndInt.Next(0, l2_.Count);
+                            int possible_move_pick = RandomNumberGenerator.RndInt.Next(0, l2_[pick].possible_moves.Count);
+                            Console.WriteLine("-- (2) Point Block strategy ");
+                            return l2_[pick].possible_moves[possible_move_pick];
+                        }
                     }
                 }
             }
@@ -672,7 +735,7 @@ namespace _12x12console
                             if (targetIndex >= 0)
                             {
                                 Tuple<int, int> ws_return_move = selectedAdvancedStrategies[targetIndex].possible_moves_diagonal.GetRandom();
-                                Console.WriteLine("White space advanced offensive strategy chosen");
+                                // Console.WriteLine("White space advanced offensive strategy chosen");
                                 return ws_return_move;
                                 
                             }
@@ -701,7 +764,7 @@ namespace _12x12console
                         Tuple<int, int> moveChoice = l4_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate) && !WillMoveSpoilWhiteSpaceStrategy(moveChoice, boardstate))
                         {
-                            Console.WriteLine("-- Point Building strategy ");
+                            // Console.WriteLine("-- Point Building strategy ");
                             return moveChoice;
                         } else
                         {
@@ -748,7 +811,7 @@ namespace _12x12console
                         Tuple<int, int> moveChoice = l2_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
                         {
-                            Console.WriteLine("-- Point Building strategy ");
+                            // Console.WriteLine("-- Point Building strategy ");
                             return moveChoice;
                         }
                         else
@@ -827,14 +890,13 @@ namespace _12x12console
         private List<Strategy> PrepareWhiteSpaceDefensiveBlockStrategies(List<Strategy> master)
         {
             List<Strategy> r_List = new List<Strategy>();
-
             foreach(Strategy s in master)
             {
                 if (s.WhiteSpaceBlockOpportunity == true && s.WhiteSpaceBlockPriority >= 2)
                 {
                     r_List.Add(s);
                 }
-            }
+            } 
             return r_List;
         }
         

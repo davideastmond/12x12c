@@ -10,22 +10,33 @@ namespace _12x12console
 {
     class Program
     {
-        static int episode_count = 5;
-        static int AIGameSpeed = 200;
+        static int episode_count = 30;
+        static int AIGameSpeed = 800;
+        
         static void Main(string[] args)
         {
             // Create a new game
-            Game gGame = new Game(new Tuple<int, int>(6, 6), Game.GameMode.AIvAI, false);
-            gameform GForm = new gameform();
-            Thread mThread = new Thread(()=> GForm.ShowDialog());
-            mThread.Start();
+            Gamesize gameDimension = new Gamesize(6, 6);
+
+            Game gGame = new Game(new Tuple<int, int>(gameDimension.X, gameDimension.Y), Game.GameMode.AIvAI, false);
+
             for (int GameRunCount = 0; GameRunCount < episode_count; GameRunCount++)
             {
                 gGame.Start();
                 RunGame(gGame);
             }
         }
-
+        public struct Gamesize
+        {
+            public int X;
+            public int Y;
+            public Gamesize(int _x, int _y)
+            {
+                X = _x;
+                Y = _y;
+            }
+        }
+            
         private static void RunGame(Game gGame)
         {
             int signalAIPlayPrompt = 0;
