@@ -7,6 +7,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.Serialization;
 using System.IO;
 using System.Windows;
+using System.Diagnostics;
 
 namespace _12x12console
 {
@@ -27,19 +28,20 @@ namespace _12x12console
     {
         public static Random RndInt = new Random(DateTime.Now.Millisecond);
     }
+    [Serializable]
     public class GameEndedEventArgs : EventArgs
     {
         public Tuple<int, int> FinalScore; // The final score tabulation
-        public Player Winner { get; private set;} // Who won the game
+        public Player Winner { get; set;} // Who won the game
     }
 
     public class PointScoreEventArgs : EventArgs
     {
         public Tuple<int, int> PieceCaptureLocation; // Keeps track of the [row, col] where point was scored (the location of the captured piece
         public Tuple<int, int> ScoringMove; // Keeps track of the [row, col] of the move made that causes the point to be scored
-        public Player Scorer { get; private set; } // Who scored
+        public Player Scorer { get;  set; } // Who scored
         public Tuple<int, int> CurrentScore; // Current Score
-        public int MoveNumber { get; private set; } // The move number at which the scoring took place
+        public int MoveNumber { get;  set; } // The move number at which the scoring took place
     }
     public class Game
     {
@@ -57,6 +59,7 @@ namespace _12x12console
         public const int Empty = 0;
         public const int Blue = 1;
         public const int Red = 2;
+        public const int TieDummy = -1;
 
         public GameBoard Board;
         public Player Player1;
@@ -95,6 +98,7 @@ namespace _12x12console
         }
 
         public GameMode GameType;
+        public bool SupressPrinting = false; // Controls
        
         public Game(Tuple<int, int> size, GameMode mode, bool ScrollUpdate = false)
         {
@@ -128,6 +132,7 @@ namespace _12x12console
         private void Game_OnGameFinished(object sender, GameEndedEventArgs e)
         {
             // throw new NotImplementedException();
+            
         }
 
         private void Game_OnGameStarted(object sender, EventArgs e)
@@ -143,6 +148,8 @@ namespace _12x12console
         public void Reset()
         {
             this.recentMove = new Tuple<int, int>(-1, -1);
+            this._Player1_Score = 0;
+            this._Player2_Score = 0;
             this.Board.Clear();
             
         }
@@ -150,28 +157,30 @@ namespace _12x12console
         {
             this.Board.Clear();
             this.GameIsOn = true;
-
-            EventArgs args = new EventArgs();
-            // Signal that a game has started by raising the event
-
-
             // Here we can randomly have the AI be first to go
             int first = RandomNumberGenerator.RndInt.Next(0, 2);
             if (first == 1)
             {
                 MakeAIMove(); // Do an AI move
             }
-            
+            EventArgs args = new EventArgs();
+            // Signal that a game has started by raising the event
+            OnGameStarted(this, args);
 
         }
         public void Stop()
         {
             this.GameIsOn = false;
+            
         }
         public void Print()
         {
             // Print out a helper guide
 
+            if (this.SupressPrinting)
+            {
+                return; // Exit
+            }
             if (Scroll_Update == true)
             {
                 Console.Clear();
@@ -267,17 +276,40 @@ namespace _12x12console
                     if (Board.Grid[loc.Item1, loc.Item2] == Empty)
                     {
                         Board.Grid[loc.Item1, loc.Item2] = p_color;
-                        SweepForScore();
+                        // SweepForScore();
+                        ScoreCheck(loc);
                         Board.Space_Tracker.Remove(new Tuple<int, int>(loc.Item1, loc.Item2));
                         recentMove = loc;
                         
                         if (IsComplete())
                         {
                             this.Stop(); // Stop the game
-                            Console.WriteLine("Game has ended.");
-                            Console.WriteLine("Final score Blue: " + this.Player1_Score + " Red: " + this.Player2_Score);
+                           // Debug.Print("Game has ended.");
+                           // Debug.Print("Final score Blue: " + this.Player1_Score + " Red: " + this.Player2_Score);
                             int[,] transformed_board = this.Board.Grid;
-                           
+
+                            // Raise a game complete event
+                            GameEndedEventArgs args = new GameEndedEventArgs();
+                            args.FinalScore = new Tuple<int, int>(this.Player1_Score, this.Player2_Score);
+                            if (this.Player1_Score > this.Player2_Score)
+                            {
+                                args.Winner = this.Player1;
+                            } else if (this.Player1_Score <  this.Player2_Score)
+                            {
+                                args.Winner = this.Player2;
+                            } else
+                            {
+                                // It's a tie, create a dummy player as a stand in
+                                DummyPlayer Dummy = new DummyPlayer();
+                                Dummy.Dummy_Type = DummyPlayer.DummyType.TiePlayer;
+                                Dummy.PieceColor = TieDummy;
+                                args.Winner = Dummy;
+                            }
+                            OnGameFinished(this, args); // Raise the event
+
+                            // Reset
+                            this._Player1_Score = 0;
+                            this._Player2_Score = 0;
                         }
                         return 0;
                     }
@@ -290,7 +322,7 @@ namespace _12x12console
             }
             else
             {
-                Console.WriteLine("Game is not started.");
+               // Console.WriteLine("Game is not started.");
                 return -1;
             }
         }
@@ -307,7 +339,7 @@ namespace _12x12console
                 AIPlayer AI_Player = (AIPlayer)Player2; // Cast
                 Tuple<int, int> finalmove = AI_Player.DoAIMove(this.Board);
                 MakeMove(AI_Player.PieceColor, finalmove);
-                Console.WriteLine("CPU plays: " + finalmove.Item1 + "," + finalmove.Item2);
+                // Console.WriteLine("CPU plays: " + finalmove.Item1 + "," + finalmove.Item2);
                 
             }
         }
@@ -318,31 +350,79 @@ namespace _12x12console
            {
                return false;
            }
+           
            return true;
         }
-        public void SweepForScore()
+        public void ScoreCheck(Tuple<int, int> MoveToCheck)
         {
-            // Scans the board and tabulates the score
-            // Reset the score
-            _Player1_Score = 0;
-            _Player2_Score = 0;
-            for (int rows = 0; rows < this.Board.Grid.GetLength(0); rows++)
+            /* This is an alternative to the sweep for score. 
+             It will instead check the piece that was placed and any surrounding pieces
+             */
+
+            List<Tuple<int, int>> surrounding_pieces = this.Board.GetSurroundingPieces(MoveToCheck); // Get the surrounding pieces, centered at MoveToCheck
+
+            // First check the condition of the move just made:
+            if (this.IsPieceCaptured(MoveToCheck))
             {
-                for (int cols = 0; cols < this.Board.Grid.GetLength(1); cols++)
+                // Add it to the list
+                this.Board.CapturedPieces.Add(MoveToCheck);
+                if (this.Board.GetPieceAtLocation(MoveToCheck) == Red)
                 {
-                    if (IsPieceCaptured(new Tuple<int, int>(rows, cols)))
+                    // Red is the captured piece
+                    // Increment blue's score
+                    this._Player1_Score += 1;
+                    // Raise an event
+                    PointScoreEventArgs args = new PointScoreEventArgs();
+                    args.CurrentScore = new Tuple<int, int>(this.Player1_Score, this.Player2_Score);
+                    args.MoveNumber = this.MoveCount;
+                    args.PieceCaptureLocation = MoveToCheck;
+                    args.Scorer = this.Player1;
+                    args.ScoringMove = MoveToCheck;
+
+                    OnPointScored(this, args); // Raise the event
+                } else if (this.Board.GetPieceAtLocation(MoveToCheck) == Blue)
+                {
+                    // Blue is the captured piece, increment red's score
+                    this._Player2_Score += 1;
+                    // Raise an event
+                    
+                    PointScoreEventArgs args = new PointScoreEventArgs();
+                    args.CurrentScore = new Tuple<int, int>(this.Player1_Score, this.Player2_Score);
+                    args.MoveNumber = this.MoveCount;
+                    args.PieceCaptureLocation = MoveToCheck;
+                    args.Scorer = this.Player2;
+                    args.ScoringMove = MoveToCheck;
+                }
+            }
+
+            // Check the surrounding pieces
+            foreach (Tuple<int, int> item in surrounding_pieces)
+            {
+                if (this.Board.GetPieceAtLocation(item) == Empty)
+                {
+                    continue;
+                } 
+                if (this.IsPieceCaptured(item))
+                {
+                    this.Board.CapturedPieces.Add(item);
+                    if (this.Board.GetPieceAtLocation(item) == Blue)
                     {
-                        if (Board.Grid[rows, cols] == Game.Blue)
-                        {
-                            _Player2_Score++;
-                        } else if (Board.Grid[rows, cols] == Game.Red)
-                        {
-                            _Player1_Score++;
-                        }
+                        // Blue is surrounded, increment red's score
+                        this._Player2_Score += 1;
+
+                        // Raise event
+                    } else if (this.Board.GetPieceAtLocation(item) ==  Red)
+                    {
+                        // Red is surrounded, increment blue scire
+                        this._Player1_Score += 1;
+                        //Raise event
+
                     }
                 }
             }
+            
         }
+        
         private int GetOppColor(int homePColor)
         {
             if (homePColor == 1)
@@ -389,7 +469,7 @@ namespace _12x12console
     public class GameBoard : ISerializable
     {
         public int[,] Grid;
-        
+        public List<Tuple<int, int>> CapturedPieces = new List<Tuple<int, int>>(); // Keeps track of the pieces captured
         public GameBoard(Tuple<int, int> size)
         {
             
@@ -468,6 +548,11 @@ namespace _12x12console
             }
         }
         
+        public int GetPieceAtLocation (Tuple<int, int> location)
+        {
+            // Returns the piece at the location [row, col] on the gameboard
+            return this.Grid[location.Item1, location.Item2];
+        }
         public List<Tuple<int, int>> GetSurroundingPieces(Tuple<int, int> atCenter, bool diagonals=false)
         {
             // Gets the 2 to 4 surrounding pieces at a given centerPoint
@@ -521,6 +606,7 @@ namespace _12x12console
             return output;
         }     
     }
+    [Serializable]
     public abstract class Player
     {
         private int _pColor;
@@ -549,6 +635,13 @@ namespace _12x12console
         }
        
     }
+    [Serializable]
+    public class DummyPlayer : Player
+    {
+        public enum DummyType {TiePlayer, Other}
+        public DummyType Dummy_Type { get; set; }
+    }
+    [Serializable]
     public class HumanPlayer : Player
     {
         public HumanPlayer()
@@ -556,6 +649,7 @@ namespace _12x12console
 
         }
     }
+    [Serializable]
     public class AIPlayer : Player
     {
         public bool EnableWhiteSpaceStrategy = true;
@@ -563,9 +657,17 @@ namespace _12x12console
         {
             
         }
-        
+        public bool isDumbPlayer = false; // Default is false  - this determines if the AI plays a calculated algorithm strategy (dumb = false), or plays random moves
         public Tuple<int, int> DoAIMove(GameBoard boardstate)
         {
+
+            if (this.isDumbPlayer)
+            {
+                // We need to get a random move from available tile spaces
+                Tuple<int, int> dumbBotMove = boardstate.Space_Tracker.GetRandom();
+                return dumbBotMove;
+                
+            }
             /* AI Logic! */
             // Executes an AI Move based on the current game board state. 
             Tuple<int, int> return_move = new Tuple<int, int>(-1,-1); // Default value for an invalid move
@@ -615,7 +717,7 @@ namespace _12x12console
                     return_move = PointScoringStrategies[pick].ScoringMove;
                     if (WillMoveEndangerAIPlayer(return_move, boardstate) == false)
                     {
-                        Console.WriteLine("-- Point Scoring strategy taken");
+                        //Console.WriteLine("-- Point Scoring strategy taken");
                         return return_move;
                     } else
                     {
@@ -642,7 +744,7 @@ namespace _12x12console
                             int pick = RandomNumberGenerator.RndInt.Next(0, l4_.Count);
                             int r_pick = RandomNumberGenerator.RndInt.Next(0, l4_[pick].possible_moves.Count);
                             return_move = l4_[pick].possible_moves[r_pick];
-                            Console.WriteLine("-- (4) Point Block strategy ");
+                           // Console.WriteLine("-- (4) Point Block strategy ");
                             return return_move;
 
                         }
@@ -650,14 +752,14 @@ namespace _12x12console
                         {
                             int pick = RandomNumberGenerator.RndInt.Next(0, l3_.Count);
                             int possible_move_pick = RandomNumberGenerator.RndInt.Next(0, l3_[pick].possible_moves.Count);
-                            Console.WriteLine("-- (3) Point Block strategy ");
+                            //Console.WriteLine("-- (3) Point Block strategy ");
                             return l3_[pick].possible_moves[possible_move_pick];
                         }
                         if (l2_.Count > 0)
                         {
                             int pick = RandomNumberGenerator.RndInt.Next(0, l2_.Count);
                             int possible_move_pick = RandomNumberGenerator.RndInt.Next(0, l2_[pick].possible_moves.Count);
-                            Console.WriteLine("-- (2) Point Block strategy ");
+                            //Console.WriteLine("-- (2) Point Block strategy ");
                             return l2_[pick].possible_moves[possible_move_pick];
                         }
                     }
@@ -684,7 +786,7 @@ namespace _12x12console
                             
                             if (!WillMoveEndangerAIPlayer(choice_move, boardstate))
                             {
-                               Console.WriteLine("White_Space defensive Block strategy chosen");
+                               //Console.WriteLine("White_Space defensive Block strategy chosen");
                                 return choice_move;
                             } else
                             {
@@ -787,7 +889,7 @@ namespace _12x12console
                         Tuple<int, int> moveChoice = l3_[pb_pick].possible_moves[pick2];
                         if (!WillMoveEndangerAIPlayer(moveChoice, boardstate))
                         {
-                            Console.WriteLine("-- Point Building strategy ");
+                            //Console.WriteLine("-- Point Building strategy ");
                             return moveChoice;
                         }
                         else

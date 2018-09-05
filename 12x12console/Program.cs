@@ -5,13 +5,19 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Windows.Forms;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace _12x12console
 {
     class Program
     {
-        static int episode_count = 30;
-        static int AIGameSpeed = 800;
+        static int episode_count = 200;
+        static int AIGameSpeed = 0;
+        static bool StatsOn = true;
+        static List<GameEndedEventArgs> GameEndedStats = new List<GameEndedEventArgs>();
         
         static void Main(string[] args)
         {
@@ -19,36 +25,112 @@ namespace _12x12console
             Gamesize gameDimension = new Gamesize(6, 6);
 
             Game gGame = new Game(new Tuple<int, int>(gameDimension.X, gameDimension.Y), Game.GameMode.AIvAI, false);
+            gGame.SupressPrinting = true;
 
+            gGame.OnGameFinished += GGame_OnGameFinished;
+            gGame.OnGameStarted += GGame_OnGameStarted;
+
+            // Get a command line
+            while (true)
+            {
+                Console.WriteLine("Press the appropriate number:");
+                Console.WriteLine("(1) Run Game.   (2) Diagnostics");
+                System.ConsoleKeyInfo initialInput = Console.ReadKey();
+
+                if (initialInput.Key == ConsoleKey.D1 || initialInput.Key == ConsoleKey.NumPad1)
+                {
+                    Console.WriteLine("");
+                    break;
+                } else
+                {
+                    // Get the system diagnostics
+                    // Need to open the "latest.dat" file that contains the path for the latest stats file
+                    // Get the latest stats data file path
+                    StreamReader sReader;
+                    if (File.Exists(Environment.CurrentDirectory + "\\" + "latest.dat"))
+                    {
+                        sReader = new StreamReader(Environment.CurrentDirectory + "\\" + "latest.dat"); // Get the stream
+                        string rStringToend = "";
+                        while (!sReader.EndOfStream)
+                        {
+                            rStringToend = sReader.ReadLine();
+                        }
+
+                        // We need to open the file
+                        if (File.Exists(rStringToend))
+                        {
+                            // We need to open the file and get the stats via deserialization
+                            using (FileStream s_stream = new FileStream(rStringToend, FileMode.Open, FileAccess.Read))
+                            {
+                                // Open the file and create a new list
+                                BinaryFormatter myFormatter = new BinaryFormatter();
+                                List<GameEndedEventArgs> list_args = myFormatter.Deserialize(s_stream) as List<GameEndedEventArgs>;
+                            }
+                        } else
+                        {
+
+                            Debug.Print("There was an issue opening the file {0}", rStringToend);
+                            Application.Exit();
+                        }
+                        
+                    } else
+                    {
+                        Debug.Print("No data file exists. Running game.");
+                        break;
+                    }
+                }
+            }
+            // Diagnostics: create a stopwatch timer
+            Stopwatch exWatch = new Stopwatch();
+            Console.Write("Game is running...");
+            exWatch.Start();
             for (int GameRunCount = 0; GameRunCount < episode_count; GameRunCount++)
             {
                 gGame.Start();
                 RunGame(gGame);
             }
-        }
-        public struct Gamesize
-        {
-            public int X;
-            public int Y;
-            public Gamesize(int _x, int _y)
+            // Write stats to file
+            if (StatsOn)
             {
-                X = _x;
-                Y = _y;
+                // Serialize and write to a file
+                WriteStatsToFile(GameEndedStats);
             }
-        }
+            exWatch.Stop();
+
+            // We need to display the stats data
+            Debug.Print("Elapsed time in milliseconds {0}", exWatch.ElapsedMilliseconds);
+
             
+            
+        }
+
+        private static void GGame_OnGameStarted(object sender, EventArgs e)
+        {
+            Debug.Print("Game has started");
+        }
+
+        private static void GGame_OnGameFinished(object sender, GameEndedEventArgs e)
+        {
+            // Get some stats
+            Debug.Print("Winner is " + e.Winner.PieceColor);
+            Debug.Print("Final Score " + e.FinalScore);
+            GameEndedStats.Add(e);
+        }
+
         private static void RunGame(Game gGame)
         {
             int signalAIPlayPrompt = 0;
             bool TestMode = false; // For debugging
-           
+
+            // Create a stop watch
+            
             if (TestMode == false)
             {
                 while (true)
                 {
                     if (gGame.IsComplete())
                     {
-                        Console.WriteLine("Game is complete.");
+                        //Console.WriteLine("Game is complete.");
                         // Post score
                         break;
                     }
@@ -141,20 +223,22 @@ namespace _12x12console
                         AIPlayer1.EnableWhiteSpaceStrategy = false;
                         AIPlayer2.EnableWhiteSpaceStrategy = true;
 
+                        AIPlayer1.isDumbPlayer = true;
+
                         while (gGame.GameIsOn)
                         {
                             // Player 1 moves
 
                             Tuple<int, int> P1MoveTuple = AIPlayer1.DoAIMove(gGame.Board);
                             gGame.MakeMove(AIPlayer1.PieceColor, P1MoveTuple);
-                            Console.WriteLine("Blue plays (" + P1MoveTuple.Item1 + ", " + P1MoveTuple.Item2 + ")");
+                            //Console.WriteLine("Blue plays (" + P1MoveTuple.Item1 + ", " + P1MoveTuple.Item2 + ")");
                             gGame.Print();
                             Thread.Sleep(AIGameSpeed);
 
                             // Player 2 moves
                             Tuple<int, int> P2MoveTuple = AIPlayer2.DoAIMove(gGame.Board);
                             gGame.MakeMove(AIPlayer2.PieceColor, P2MoveTuple);
-                            Console.WriteLine("Red plays (" + P2MoveTuple.Item1 + ", " + P2MoveTuple.Item2 + ")");
+                            //Console.WriteLine("Red plays (" + P2MoveTuple.Item1 + ", " + P2MoveTuple.Item2 + ")");
                             gGame.Print();
                             Thread.Sleep(AIGameSpeed);
                         }
@@ -215,8 +299,38 @@ namespace _12x12console
                     }
                 }
             
+            }
+          
+            
         }
-    }
 
+        private static void WriteStatsToFile (List<GameEndedEventArgs> rawData)
+        {
+            string statsFilePath = Environment.CurrentDirectory + "\\" + DateTime.Now.Hour.ToString() + "_" + DateTime.Now.Minute + "_" + DateTime.Now.Second + "_" + "stats.dat";
+            string latestdata = Environment.CurrentDirectory + "\\" + "latest.dat";
+            if (!File.Exists(statsFilePath))
+            {
+                using (FileStream stream = new FileStream(statsFilePath, FileMode.OpenOrCreate))
+                {
+                    if (!File.Exists(latestdata))
+                    {
+                        File.Create(latestdata); // Create a blank file
+                    }
+                    BinaryFormatter mFormatter = new BinaryFormatter();
+                    mFormatter.Serialize(stream, rawData); // Save to file
+                    Debug.Print("Stats data saved to file.");
+
+                }
+                // Create a latest.dat file
+                if (File.Exists(latestdata))
+                {
+                    File.AppendAllText(latestdata, statsFilePath + System.Environment.NewLine); // Append a file path to the data file
+                } 
+            } else
+            {
+                // File exists
+            }
+        }
+        
     }
 }
