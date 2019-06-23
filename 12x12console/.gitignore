@@ -348,3 +348,8 @@ healthchecksdb
 
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
+
+.vs/12x12console/v16/
+bin/debug
+obj/debug
+.vs/12x12console/v16/Server/sqlite3/db.lock

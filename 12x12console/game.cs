@@ -33,6 +33,7 @@ namespace _12x12console
     {
         public Tuple<int, int> FinalScore; // The final score tabulation
         public Player Winner { get; set;} // Who won the game
+        
     }
 
     public class PointScoreEventArgs : EventArgs

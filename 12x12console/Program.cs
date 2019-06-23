@@ -14,8 +14,8 @@ namespace _12x12console
 {
     class Program
     {
-        static int episode_count = 200;
-        static int AIGameSpeed = 0;
+        static int episode_count = 10;
+        static int AIGameSpeed = 1;
         static bool StatsOn = true;
         static List<GameEndedEventArgs> GameEndedStats = new List<GameEndedEventArgs>();
         
@@ -25,7 +25,7 @@ namespace _12x12console
             Gamesize gameDimension = new Gamesize(6, 6);
 
             Game gGame = new Game(new Tuple<int, int>(gameDimension.X, gameDimension.Y), Game.GameMode.AIvAI, false);
-            gGame.SupressPrinting = true;
+            gGame.SupressPrinting = false;
 
             gGame.OnGameFinished += GGame_OnGameFinished;
             gGame.OnGameStarted += GGame_OnGameStarted;
@@ -33,15 +33,19 @@ namespace _12x12console
             // Get a command line
             while (true)
             {
-                Console.WriteLine("Press the appropriate number:");
-                Console.WriteLine("(1) Run Game.   (2) Diagnostics");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("Select Game Option:");
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                Console.WriteLine("(1) Run {0} Game(s). (2) Run Custom number of games  (3) Diagnostics", episode_count);
+                Console.ResetColor();
                 System.ConsoleKeyInfo initialInput = Console.ReadKey();
+                Console.WriteLine("");
 
                 if (initialInput.Key == ConsoleKey.D1 || initialInput.Key == ConsoleKey.NumPad1)
                 {
                     Console.WriteLine("");
                     break;
-                } else
+                } else if (initialInput.Key == ConsoleKey.D3 || initialInput.Key == ConsoleKey.NumPad3)
                 {
                     // Get the system diagnostics
                     // Need to open the "latest.dat" file that contains the path for the latest stats file
@@ -64,7 +68,8 @@ namespace _12x12console
                             {
                                 // Open the file and create a new list
                                 BinaryFormatter myFormatter = new BinaryFormatter();
-                                List<GameEndedEventArgs> list_args = myFormatter.Deserialize(s_stream) as List<GameEndedEventArgs>;
+                                StatisticsSession s_session = myFormatter.Deserialize(s_stream) as StatisticsSession;
+                                Process_and_display_stats(s_session);
                             }
                         } else
                         {
@@ -78,42 +83,57 @@ namespace _12x12console
                         Debug.Print("No data file exists. Running game.");
                         break;
                     }
+                } else if (initialInput.Key == ConsoleKey.D2 || initialInput.Key == ConsoleKey.NumPad2)
+                {
+                    // Allow the user to enter a custom episode count
+                    Console.Write("Enter amount of episodes to run: ");
+                    int id = 0;
+                    while(!int.TryParse(Console.ReadLine(), out id))
+                    {
+                        Console.WriteLine("");
+                        Console.WriteLine("Error! Please enter a numerical value.");
+                        Console.Write("Enter amount of episodes to run: ");
+                    }
+                    // Indicate to the user the valid info
+                    episode_count = id;
+                    Console.WriteLine("Episode Count is {0}", episode_count);
+                    break;
                 }
             }
             // Diagnostics: create a stopwatch timer
             Stopwatch exWatch = new Stopwatch();
-            Console.Write("Game is running...");
+            Console.Write("Game is running for {0} episodes...", episode_count);
+            Console.WriteLine("");
             exWatch.Start();
             for (int GameRunCount = 0; GameRunCount < episode_count; GameRunCount++)
             {
                 gGame.Start();
                 RunGame(gGame);
             }
+            exWatch.Stop();
             // Write stats to file
             if (StatsOn)
             {
+                // Create a statistics object
+                StatisticsSession s_session = new StatisticsSession();
+                s_session.TimeElapsed = exWatch.ElapsedMilliseconds;
+                s_session.ev_args = GameEndedStats; // Pass the list object reference
+                s_session.Game_Mode = gGame.GameType;
                 // Serialize and write to a file
-                WriteStatsToFile(GameEndedStats);
+                WriteStatsToFile(s_session); // Save and serialize the session
             }
-            exWatch.Stop();
-
             // We need to display the stats data
             Debug.Print("Elapsed time in milliseconds {0}", exWatch.ElapsedMilliseconds);
-
-            
-            
+            Console.Read();
         }
 
         private static void GGame_OnGameStarted(object sender, EventArgs e)
         {
-            Debug.Print("Game has started");
+            
         }
 
         private static void GGame_OnGameFinished(object sender, GameEndedEventArgs e)
         {
-            // Get some stats
-            Debug.Print("Winner is " + e.Winner.PieceColor);
-            Debug.Print("Final Score " + e.FinalScore);
             GameEndedStats.Add(e);
         }
 
@@ -298,13 +318,10 @@ namespace _12x12console
                         continue;
                     }
                 }
-            
             }
-          
-            
         }
 
-        private static void WriteStatsToFile (List<GameEndedEventArgs> rawData)
+        private static void WriteStatsToFile (StatisticsSession sessionData)
         {
             string statsFilePath = Environment.CurrentDirectory + "\\" + DateTime.Now.Hour.ToString() + "_" + DateTime.Now.Minute + "_" + DateTime.Now.Second + "_" + "stats.dat";
             string latestdata = Environment.CurrentDirectory + "\\" + "latest.dat";
@@ -317,7 +334,7 @@ namespace _12x12console
                         File.Create(latestdata); // Create a blank file
                     }
                     BinaryFormatter mFormatter = new BinaryFormatter();
-                    mFormatter.Serialize(stream, rawData); // Save to file
+                    mFormatter.Serialize(stream, sessionData); // Save to file
                     Debug.Print("Stats data saved to file.");
 
                 }
@@ -331,6 +348,81 @@ namespace _12x12console
                 // File exists
             }
         }
+        private static void Process_and_display_stats(StatisticsSession sessionData)
+        {
+            Console.WriteLine("");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Statistical data");
+            Console.WriteLine("----------------");
+            Console.ResetColor();
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write("# Games Played: ");
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.Write(sessionData.ev_args.Count);
+            Console.WriteLine("");
+            Console.ResetColor();
+            int tieCount = 0;
+            int blueWins = 0;
+            int redWins = 0;
+            foreach (GameEndedEventArgs e in sessionData.ev_args)
+            {
+                if (e.Winner is DummyPlayer)
+                {
+                    tieCount++;
+                } else if (e.Winner.PieceColor == 1)
+                {
+                    blueWins++;
+                } else if (e.Winner.PieceColor == 2)
+                {
+                    redWins++;
+                }
+            }
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write("Total Episode Time elapsed: ");
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.Write(sessionData.TimeElapsed + " ms");
+            Console.WriteLine("");
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write("Game Type: ");
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.Write(sessionData.Game_Mode.ToString());
+            Console.WriteLine("");
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write("Ties: ");
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.Write(tieCount);
+            Console.WriteLine("");
+
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.Write("BLUE ");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+
+            Console.Write("Wins: ");
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.Write(blueWins);
+            Console.WriteLine("");
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Write("RED ");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write("Wins: ");
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.Write(redWins);
+            Console.WriteLine("");
+            Console.ReadKey(); //
+            Console.ResetColor();
+        }
         
+    }
+    [Serializable]
+    public class StatisticsSession
+    {
+        // This class essentially holds the list of GameEndEventArgs and a time elapsed stamp 
+        public long TimeElapsed;
+        public List<GameEndedEventArgs> ev_args;
+        public Game.GameMode Game_Mode; // Keeps track of the game mode
     }
 }
